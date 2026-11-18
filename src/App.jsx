@@ -9,6 +9,15 @@ import PageLoader from './components/PageLoader'
 import LandingPage from './pages/LandingPage'
 import './index.css'
 
+// ── Resilient Lazy Loading (prevents adblockers from crashing the app) ────────
+const safeLazy = (importFn) =>
+  lazy(() =>
+    importFn().catch((err) => {
+      console.warn('Dynamic import blocked or failed to fetch:', err);
+      return { default: () => null };
+    })
+  );
+
 // ── Lazy-loaded routes (split out of the initial bundle) ──────────────────────
 const AuctionRoom     = lazy(() => import('./pages/AuctionRoom'))
 const AuctionSummary  = lazy(() => import('./pages/AuctionSummary'))
@@ -21,11 +30,10 @@ const PhotoCredits    = lazy(() => import('./pages/PhotoCredits'))
 const AdminPanel      = lazy(() => import('./pages/AdminPanel'))
 const NotFound        = lazy(() => import('./pages/NotFound'))
 
-// ── Lazy-loaded heavy modals (defer until after first paint) ──────────────────
-const QuotaExceededModal   = lazy(() => import('./components/QuotaExceededModal'))
-const ConnectionAlertModal = lazy(() => import('./components/ConnectionAlertModal'))
-const FeedbackModal        = lazy(() => import('./components/FeedbackModal'))
-const CookieConsent        = lazy(() => import('./components/CookieConsent'))
+// ── Lazy-loaded heavy modals (safe against adblockers) ────────────────────────
+const QuotaExceededModal   = safeLazy(() => import('./components/QuotaExceededModal'))
+const ConnectionAlertModal = safeLazy(() => import('./components/ConnectionAlertModal'))
+const FeedbackModal        = safeLazy(() => import('./components/FeedbackModal'))
 
 // ── Minimal fallback — uniform with PageLoader ────────────────────────────────
 const PageFallback = () => <PageLoader />
@@ -44,7 +52,6 @@ function App() {
                   <ConnectionAlertModal />
                   <QuotaExceededModal />
                   <FeedbackModal />
-                  <CookieConsent />
                 </Suspense>
 
                 <Routes>

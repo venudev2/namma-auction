@@ -43,7 +43,7 @@ import {
 
 const AuctionSummary = () => {
   const { id } = useParams();
-  useDocumentTitle(`Auction Summary #${id || ''} | CrickAuction`, 'Final squad rosters and auction summary.', true);
+  useDocumentTitle(`Auction Summary #${id || ''} | Namma Auction`, 'Final squad rosters and auction summary.', true);
   const navigate = useNavigate();
   const { server, ready: serverReady } = useRoomServer(id);
   const { currentAuction, roomTeams } = useAuction();
@@ -785,7 +785,7 @@ const AuctionSummary = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-[11px] font-pixel uppercase tracking-wider text-white">CrickAuction</div>
+                            <div className="text-[11px] font-pixel uppercase tracking-wider text-white">Namma Auction</div>
                             <div className="text-[9px] font-mono text-slate-500">crickauction.in</div>
                           </div>
                         </div>
@@ -846,7 +846,7 @@ const AuctionSummary = () => {
 
                         {/* Footer */}
                         <div className="relative z-10 mt-5 pt-3 border-t border-white/10 flex items-center justify-between text-[8px] font-pixel uppercase tracking-widest text-slate-500">
-                          <span>Verified by CrickAuction Simulation Engine</span>
+                          <span>Verified by Namma Auction Simulation Engine</span>
                           <span className="font-mono">crickauction.in</span>
                         </div>
                       </div>

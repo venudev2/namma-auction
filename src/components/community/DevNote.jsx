@@ -13,33 +13,20 @@ export default function DevNote() {
   return (
     <div className="w-full h-full rounded-2xl sm:rounded-3xl bg-white/[0.02] border border-white/10 p-5 sm:p-7 flex flex-col justify-between backdrop-blur-sm relative overflow-hidden">
       <div>
-        {/* Header with Photo & Heading */}
-        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-white/5">
-          <div className="relative w-12 h-12 rounded-2xl overflow-hidden bg-white/5 border border-white/10 shrink-0 shadow-md">
-            {!avatarError ? (
-              <img
-                src={DEV_NOTE_CONFIG.avatarUrl}
-                alt={DEV_NOTE_CONFIG.name}
-                onError={() => setAvatarError(true)}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center font-pixel text-xs text-slate-300">
-                SU
-              </div>
-            )}
-            <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-black" />
-          </div>
-
+        {/* Header with Heading & Creator Names (No Picture) */}
+        <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/5">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-pixel text-sm sm:text-base uppercase tracking-wider text-white">
+              <h3 className="font-pixel text-sm sm:text-base uppercase tracking-wider text-amber-400">
                 {DEV_NOTE_CONFIG.heading}
               </h3>
             </div>
-            <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
-              {DEV_NOTE_CONFIG.name} • {DEV_NOTE_CONFIG.role}
+            <p className="text-[11px] sm:text-xs text-white font-bold mt-1">
+              Created by {DEV_NOTE_CONFIG.name} ({DEV_NOTE_CONFIG.role})
             </p>
+          </div>
+          <div className="px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-pixel uppercase tracking-widest">
+            OG Creators
           </div>
         </div>
 

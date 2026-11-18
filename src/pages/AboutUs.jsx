@@ -18,8 +18,8 @@ import useDocumentTitle from '../hooks/useDocumentTitle';
 
 const AboutUs = () => {
   useDocumentTitle(
-    'About Us | CrickAuction — The Premier IPL Auction Simulator',
-    'Learn about CrickAuction, our platform mission, AI bot valuation engine, realtime architecture, and engineering standards.'
+    'About Us | Namma Auction — The Premier IPL Auction Simulator',
+    'Learn about Namma Auction, our platform mission, AI bot valuation engine, realtime architecture, and engineering standards.'
   );
 
   useEffect(() => {
@@ -116,11 +116,11 @@ const AboutUs = () => {
         <main className="flex-1 max-w-3xl w-full pb-20">
           <div className="mb-8 sm:mb-12 border-b border-white/10 pb-6 sm:pb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
-              About CrickAuction
+              About Namma Auction
             </h1>
             <p className="text-sm text-gray-500 mb-6">Last updated: October 2026 • Platform Philosophy</p>
             <p className="text-base text-[#E5E5E5] leading-relaxed">
-              CrickAuction is an advanced, real-time multiplayer cricket simulation platform crafted to recreate the strategic tension, purse management, and paddle battles of the official Indian Premier League (IPL) Mega Auction.
+              Namma Auction is an advanced, real-time multiplayer cricket simulation platform crafted to recreate the strategic tension, purse management, and paddle battles of the official Indian Premier League (IPL) Mega Auction.
             </p>
           </div>
 
@@ -147,7 +147,7 @@ const AboutUs = () => {
             <section id="mission" className="scroll-mt-24">
               <h2 className="text-xl font-semibold text-white mb-2">1. Mission & Philosophy</h2>
               <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-                Why we built CrickAuction and how it bridges the gap between passive cricket viewing and tactical roster construction.
+                Why we built Namma Auction and how it bridges the gap between passive cricket viewing and tactical roster construction.
               </p>
 
               <div className="border border-white/10 rounded-md p-5 sm:p-6 bg-white/[0.01] space-y-4">
@@ -155,7 +155,7 @@ const AboutUs = () => {
                   Every year, millions of cricket enthusiasts worldwide watch team owners and analysts commit hundreds of crores at the IPL Mega Auction table. While fantasy leagues focus only on match points, the true foundation of every championship franchise is built in the auction hall—through purse discipline, smart scouting, role balancing, and bidding composure under time pressure.
                 </p>
                 <p className="text-sm text-gray-300 leading-relaxed font-normal">
-                  CrickAuction was founded to make this tactical auction masterclass accessible to everyone. Whether you are hosting a high-stakes league with 9 friends or playing offline solo against our autonomous AI bot franchises, our simulator delivers realistic bidding dynamics, authentic purse mathematics, and instant feedback at professional esports standards.
+                  Namma Auction was founded to make this tactical auction masterclass accessible to everyone. Whether you are hosting a high-stakes league with 9 friends or playing offline solo against our autonomous AI bot franchises, our simulator delivers realistic bidding dynamics, authentic purse mathematics, and instant feedback at professional esports standards.
                 </p>
               </div>
             </section>
@@ -249,37 +249,16 @@ const AboutUs = () => {
 
               <div className="border border-white/10 rounded-md p-5 sm:p-6 bg-white/[0.01] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider mb-2">
                     <Code2 size={14} />
-                    <span>Lead Architect & Maintainer</span>
+                    <span>Lead Creators & Architects</span>
                   </div>
                   <h3 className="text-xl font-bold text-white mb-2">
-                    Shaurya Upadhyay
+                    MALUR and MALVALLI MALLI (OG creators)
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-400 leading-relaxed font-normal max-w-xl">
-                    Software engineer and cricket simulation architect. CrickAuction is maintained with continuous roster revisions, performance profiling, and community-driven features to guarantee an authentic, transparent, and responsive simulator for cricket fans worldwide.
+                    Cricket simulation architects and tactical gaming enthusiasts. Namma Auction is built and maintained with continuous roster revisions, high-performance real-time bidding, and community-driven features to guarantee an authentic, transparent, and responsive simulator for cricket fans.
                   </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto shrink-0">
-                  <a
-                    href="https://ershaurya.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-2 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2"
-                  >
-                    <span>Portfolio</span>
-                    <ExternalLink size={12} />
-                  </a>
-                  <a
-                    href="https://github.com/shaurya-upadhyay/ipl-auction"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-2 rounded-md bg-slate-500/25 hover:bg-slate-500/35 border border-slate-400/30 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
-                  >
-                    <span>GitHub</span>
-                    <ExternalLink size={12} />
-                  </a>
                 </div>
               </div>
             </section>
@@ -289,7 +268,7 @@ const AboutUs = () => {
               <h2 className="text-xl font-semibold text-white mb-2">5. Non-Affiliation Disclaimer</h2>
               <div className="border border-white/10 rounded-md p-5 bg-white/[0.01] text-xs text-gray-400 leading-relaxed space-y-2">
                 <p>
-                  CrickAuction is an independent fan-created simulation project developed strictly for educational and entertainment purposes. CrickAuction is not affiliated with, endorsed by, or sponsored by the Board of Control for Cricket in India (BCCI), the Indian Premier League (IPL), or any participating franchise.
+                  Namma Auction is an independent fan-created simulation project developed strictly for educational and entertainment purposes. Namma Auction is not affiliated with, endorsed by, or sponsored by the Board of Control for Cricket in India (BCCI), the Indian Premier League (IPL), or any participating franchise.
                 </p>
                 <p>
                   All franchise trademarks, team names, logos, player names, and associated likenesses remain the sole intellectual property of their respective rights holders.

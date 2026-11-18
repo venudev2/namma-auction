@@ -15,12 +15,12 @@ export const shuffleArray = (array) => {
   return a;
 };
 
-/** Build the shuffled lot order for an auction type, grouped by player set. */
-export function generatePlayerOrder(auctionType = 'mega') {
+/** Build the shuffled lot order for an auction type, grouped by player tier. */
+export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, maxLots = null) {
   if (auctionType === 'legends') {
     const byRole = {};
     IPL_PLAYERS.forEach((p, i) => {
-      if (p.set === 'Legends') {
+      if (p.set === 'Legends' || p.tier === 'Legends') {
         (byRole[p.role] ||= []).push(i);
       }
     });
@@ -31,18 +31,58 @@ export function generatePlayerOrder(auctionType = 'mega') {
     return order;
   }
 
-  // All other modes (mega, sprint11, sprint5) use all modern players with no truncation
-  const modernPool = [];
+  // Modern pool filtered by selectedSets / selectedTiers (if specified)
+  const isSetSelected = Array.isArray(selectedSets) && selectedSets.length > 0;
+
+  // Tier-based buckets
+  const tier1 = [];
+  const tier2 = [];
+  const tier3 = [];
+  const other = [];
+
   IPL_PLAYERS.forEach((p, i) => {
-    if (p.set !== 'Legends') modernPool.push(i);
+    if (p.set === 'Legends' || p.tier === 'Legends') return;
+
+    const pTier = p.tier || p.set;
+    if (isSetSelected && !selectedSets.includes(pTier) && !selectedSets.includes(p.set)) {
+      return;
+    }
+
+    if (pTier === 'Tier 1' || p.set === 'Tier 1' || p.set === 'Marquee Set 1') {
+      tier1.push(i);
+    } else if (pTier === 'Tier 2' || p.set === 'Tier 2') {
+      tier2.push(i);
+    } else if (pTier === 'Tier 3' || p.set === 'Tier 3') {
+      tier3.push(i);
+    } else {
+      other.push(i);
+    }
   });
 
-  const modernSets = [...new Set(modernPool.map((i) => IPL_PLAYERS[i].set))];
   const order = [];
-  modernSets.forEach((setName) => {
-    const idxs = modernPool.filter((i) => IPL_PLAYERS[i].set === setName);
-    order.push(...shuffleArray(idxs));
-  });
+  // Tier-Based Auction Flow:
+  // 1. Start with Tier 1 (Marquee and superstar players), fully randomized
+  if (tier1.length > 0) {
+    order.push(...shuffleArray(tier1));
+  }
+  // 2. Move to Tier 2 (Established and experienced IPL players), fully randomized
+  if (tier2.length > 0) {
+    order.push(...shuffleArray(tier2));
+  }
+  // 3. Move to Tier 3 (Emerging, uncapped and young players), fully randomized
+  if (tier3.length > 0) {
+    order.push(...shuffleArray(tier3));
+  }
+  // 4. Any other remaining modern players
+  if (other.length > 0) {
+    order.push(...shuffleArray(other));
+  }
+
+  // Optional lot count cap (for Mini Auctions or quick games)
+  if (typeof maxLots === 'number' && maxLots > 0) {
+    return order.slice(0, maxLots);
+  }
+
   return order;
 }
 

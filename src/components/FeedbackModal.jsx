@@ -137,7 +137,7 @@ const FeedbackModal = () => {
                   Share Feedback
                 </h3>
                 <p className="text-[7.5px] font-black text-gray-500 uppercase tracking-widest mt-1">
-                  Help make CrickAuction better
+                  Help make Namma Auction better
                 </p>
               </div>
 

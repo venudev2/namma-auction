@@ -6,7 +6,7 @@ import PageBackground from '../components/PageBackground';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 const PrivacyPolicy = () => {
-  useDocumentTitle('Privacy Policy | CrickAuction', 'Privacy Policy for CrickAuction.');
+  useDocumentTitle('Privacy Policy | Namma Auction', 'Privacy Policy for Namma Auction.');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -121,7 +121,7 @@ const PrivacyPolicy = () => {
             <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">Privacy Policy</h1>
             <p className="text-sm text-gray-500 mb-6">Last updated: November 15, 2026</p>
             <p className="text-base text-[#E5E5E5] leading-relaxed">
-              This policy explains what information CrickAuction collects, how it is used, and which third-party services are involved. We aim to collect only the minimal data necessary to provide a real-time multiplayer auction experience.
+              This policy explains what information Namma Auction collects, how it is used, and which third-party services are involved. We aim to collect only the minimal data necessary to provide a real-time multiplayer auction experience.
             </p>
           </div>
 
@@ -129,7 +129,7 @@ const PrivacyPolicy = () => {
             <section id="info-collect" className="scroll-mt-24">
               <h2 className="text-xl font-semibold text-white mb-4">1. Information we collect</h2>
               <div className="space-y-4 text-[#E5E5E5] text-base leading-relaxed">
-                <p>When you use CrickAuction, we collect the following information:</p>
+                <p>When you use Namma Auction, we collect the following information:</p>
                 <ul className="list-disc pl-5 space-y-2 text-gray-400">
                   <li><strong className="text-gray-200">Account information:</strong> If you sign in with Google, we collect your display name, email address, and profile picture URL.</li>
                   <li><strong className="text-gray-200">Auction data:</strong> We store the state of the auction rooms you create or join, including team configurations, bids, and chat messages.</li>
@@ -155,7 +155,7 @@ const PrivacyPolicy = () => {
               <h2 className="text-xl font-semibold text-white mb-4">3. Authentication</h2>
               <div className="space-y-4 text-[#E5E5E5] text-base leading-relaxed">
                 <p>
-                  We use Firebase Authentication (via Google OAuth 2.0) to handle user sign-in. CrickAuction never receives, processes, or stores your Google password. Your authentication token is managed entirely by Firebase and your browser.
+                  We use Firebase Authentication (via Google OAuth 2.0) to handle user sign-in. Namma Auction never receives, processes, or stores your Google password. Your authentication token is managed entirely by Firebase and your browser.
                 </p>
               </div>
             </section>
@@ -193,7 +193,7 @@ const PrivacyPolicy = () => {
             <section id="third-party" className="scroll-mt-24">
               <h2 className="text-xl font-semibold text-white mb-4">7. Third-party services</h2>
               <div className="space-y-4 text-[#E5E5E5] text-base leading-relaxed">
-                <p>CrickAuction integrates with the following third-party services:</p>
+                <p>Namma Auction integrates with the following third-party services:</p>
                 <ul className="list-disc pl-5 space-y-2 text-gray-400">
                   <li><strong>Firebase (Google):</strong> For authentication, real-time database, and hosting.</li>
                   <li><strong>Cloudflare:</strong> For edge network acceleration, DDoS mitigation, and API rate limiting.</li>
@@ -211,7 +211,7 @@ const PrivacyPolicy = () => {
               <h2 className="text-xl font-semibold text-white mb-4">8. Your choices</h2>
               <div className="space-y-4 text-[#E5E5E5] text-base leading-relaxed">
                 <p>
-                  You have the right to request the deletion of your account and associated data. If you wish to have your data removed from our systems, please contact us. You can also revoke CrickAuction's access to your Google account via your Google Account permissions dashboard.
+                  You have the right to request the deletion of your account and associated data. If you wish to have your data removed from our systems, please contact us. You can also revoke Namma Auction's access to your Google account via your Google Account permissions dashboard.
                 </p>
                 <p>
                   To manage personalized advertising preferences or opt out of interest-based ads served by Google and its advertising partners, visit <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors underline">Google Ads Settings</a>.
@@ -223,7 +223,7 @@ const PrivacyPolicy = () => {
               <h2 className="text-xl font-semibold text-white mb-4">9. Children's privacy</h2>
               <div className="space-y-4 text-[#E5E5E5] text-base leading-relaxed">
                 <p>
-                  CrickAuction is not directed at children under the age of 13. We do not knowingly collect personal information from children. If we become aware that we have collected personal data from a child under 13, we will take steps to delete that information.
+                  Namma Auction is not directed at children under the age of 13. We do not knowingly collect personal information from children. If we become aware that we have collected personal data from a child under 13, we will take steps to delete that information.
                 </p>
               </div>
             </section>
@@ -244,7 +244,7 @@ const PrivacyPolicy = () => {
                   If you have questions about this Privacy Policy or how we handle your data, please contact the engineering team at:
                 </p>
                 <p>
-                  <a href="mailto:shaurya01836@gmail.com" className="text-blue-400 hover:text-blue-300 transition-colors">shaurya01836@gmail.com</a>
+                  <a href="mailto:support@nammaauction.com" className="text-blue-400 hover:text-blue-300 transition-colors">support@nammaauction.com</a>
                 </p>
               </div>
             </section>

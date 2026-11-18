@@ -100,15 +100,15 @@ export const RATINGS_V2_CONFIG = {
 };
 
 export const DEV_NOTE_CONFIG = {
-  name: 'Shaurya',
-  role: 'Creator & Developer',
-  avatarUrl: 'https://github.com/Shaurya01836.png',
+  name: 'MALUR and MALVALLI MALLI',
+  role: 'OG creators',
+  avatarUrl: null,
   heading: 'NOTE FROM THE DEV',
-  copy: "Hey, I'm Shaurya, a B.Tech student building CrickAuction between classes. It runs on a student budget (free tiers), so yes, sometimes it lags. I read every piece of feedback, even the angry ones, and I'm fixing things one by one. Thanks for sticking around.",
+  copy: "Created by MALUR and MALVALLI MALLI (OG creators). Built for cricket lovers to experience high-intensity tactical T20 bidding with friends.",
   chips: [
-    'Free-tier hosting',
-    'Solo dev',
     'Community feedback',
+    'Custom tactical engine',
+    'Namma Auction',
   ],
   feedbackBtnText: 'Send feedback',
 };

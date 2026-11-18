@@ -194,6 +194,7 @@ export const AuctionProvider = ({ children }) => {
     auctionType = 'mega',
     isPublic = true,
     server = DEFAULT_AUCTION_SERVER,
+    initialSettings = {},
   ) => {
     if (isLocalRoom(roomId, server)) {
       return;
@@ -259,7 +260,13 @@ export const AuctionProvider = ({ children }) => {
     const budget = isSprint5 ? 60.0 : isSprint11 ? 90.0 : isLegends ? 100.0 : 120.0;
     const squadLimit = isSprint5 ? 5 : (isSprint11 || isLegends) ? 11 : 25;
     const overseasLimit = isSprint5 ? 2 : (isSprint11 || isLegends) ? 4 : 8;
-    const settings = { bidTimer: 10, budget };
+    const settings = {
+      bidTimer: 10,
+      budget,
+      selectedSets: initialSettings.selectedSets || ['Tier 1', 'Tier 2', 'Tier 3'],
+      maxLots: initialSettings.maxLots || null,
+      ...initialSettings,
+    };
 
     const roomData = {
       hostId: userId,
@@ -509,7 +516,11 @@ export const AuctionProvider = ({ children }) => {
       let playerOrder =
         Array.isArray(roomData.playerOrder) && roomData.playerOrder.length > 0
           ? roomData.playerOrder
-          : generatePlayerOrder(roomData.auctionType || 'mega');
+          : generatePlayerOrder(
+              roomData.auctionType || 'mega',
+              roomData.settings?.selectedSets || roomData.selectedSets,
+              roomData.settings?.maxLots
+            );
       if (playerOrder.length === 0) {
         throw new Error('No players available for this auction.');
       }

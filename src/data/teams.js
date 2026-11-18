@@ -11,6 +11,13 @@ export const BOT_COACHES = {
   LSG: 'Langer Bhai',
 };
 
+export const handleTeamLogoError = (e, teamId) => {
+  if (e && e.currentTarget && !e.currentTarget.dataset.fallback) {
+    e.currentTarget.dataset.fallback = 'true';
+    e.currentTarget.src = `/logos/${teamId || 'MI'}.svg`;
+  }
+};
+
 export const getTeamBotName = (teamOrId) => {
   const id = typeof teamOrId === 'string' ? teamOrId : teamOrId?.id;
   if (id && BOT_COACHES[id]) return BOT_COACHES[id];
@@ -26,7 +33,8 @@ export const TEAMS = [
     botName: BOT_COACHES.MI,
     color: 'bg-blue-600', 
     textColor: 'text-white',
-    logo: '/logos/MI.svg'
+    logo: '/logos/MI.png',
+    fallbackLogo: '/logos/MI.svg'
   },
   { 
     id: 'CSK', 
@@ -35,7 +43,8 @@ export const TEAMS = [
     botName: BOT_COACHES.CSK,
     color: 'bg-yellow-400', 
     textColor: 'text-black',
-    logo: '/logos/CSK.svg'
+    logo: '/logos/CSK.png',
+    fallbackLogo: '/logos/CSK.svg'
   },
   { 
     id: 'RCB', 
@@ -44,7 +53,8 @@ export const TEAMS = [
     botName: BOT_COACHES.RCB,
     color: 'bg-red-600', 
     textColor: 'text-white',
-    logo: '/logos/RCB.svg'
+    logo: '/logos/RCB.png',
+    fallbackLogo: '/logos/RCB.svg'
   },
   { 
     id: 'KKR', 
@@ -53,7 +63,8 @@ export const TEAMS = [
     botName: BOT_COACHES.KKR,
     color: 'bg-purple-800', 
     textColor: 'text-white',
-    logo: '/logos/KKR.svg'
+    logo: '/logos/KKR.png',
+    fallbackLogo: '/logos/KKR.svg'
   },
   { 
     id: 'DC', 
@@ -62,7 +73,8 @@ export const TEAMS = [
     botName: BOT_COACHES.DC,
     color: 'bg-blue-500', 
     textColor: 'text-white',
-    logo: '/logos/DC.svg'
+    logo: '/logos/DC.png',
+    fallbackLogo: '/logos/DC.svg'
   },
   { 
     id: 'PBKS', 
@@ -71,7 +83,8 @@ export const TEAMS = [
     botName: BOT_COACHES.PBKS,
     color: 'bg-red-500', 
     textColor: 'text-white',
-    logo: '/logos/PBKS.svg'
+    logo: '/logos/PBKS.png',
+    fallbackLogo: '/logos/PBKS.svg'
   },
   { 
     id: 'RR', 
@@ -80,7 +93,8 @@ export const TEAMS = [
     botName: BOT_COACHES.RR,
     color: 'bg-pink-600', 
     textColor: 'text-white',
-    logo: '/logos/RR.svg'
+    logo: '/logos/RR.png',
+    fallbackLogo: '/logos/RR.svg'
   },
   { 
     id: 'SRH', 
@@ -89,7 +103,8 @@ export const TEAMS = [
     botName: BOT_COACHES.SRH,
     color: 'bg-orange-500', 
     textColor: 'text-white',
-    logo: '/logos/SRH.svg'
+    logo: '/logos/SRH.png',
+    fallbackLogo: '/logos/SRH.svg'
   },
   { 
     id: 'GT', 
@@ -98,7 +113,8 @@ export const TEAMS = [
     botName: BOT_COACHES.GT,
     color: 'bg-slate-700', 
     textColor: 'text-white',
-    logo: '/logos/GT.svg'
+    logo: '/logos/GT.png',
+    fallbackLogo: '/logos/GT.svg'
   },
   { 
     id: 'LSG', 
@@ -107,6 +123,7 @@ export const TEAMS = [
     botName: BOT_COACHES.LSG,
     color: 'bg-pink-800', 
     textColor: 'text-white',
-    logo: '/logos/LSG.svg'
+    logo: '/logos/LSG.png',
+    fallbackLogo: '/logos/LSG.svg'
   },
 ];

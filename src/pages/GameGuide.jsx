@@ -42,8 +42,8 @@ const FAQS = [
     a: 'Yes. Create a room, select your team, and click the "Fill bots" button at the top of the lobby. Smart AI franchise managers will immediately fill all remaining empty franchises with authentic bidding personalities.',
   },
   {
-    q: 'Is CrickAuction completely free to play?',
-    a: 'Yes! CrickAuction is a 100% free community cricket simulation platform. You can create unlimited auction rooms, draft championship squads with friends, and export custom high-resolution squad cards with zero paywalls.',
+    q: 'Is Namma Auction completely free to play?',
+    a: 'Yes! Namma Auction is a 100% free community cricket simulation platform. You can create unlimited auction rooms, draft championship squads with friends, and export custom high-resolution squad cards with zero paywalls.',
   },
 ];
 
@@ -73,7 +73,7 @@ const STRATEGY_PLAYBOOKS = [
 
 const GameGuide = () => {
   useDocumentTitle(
-    'Rulebook & Game Guide | CrickAuction',
+    'Rulebook & Game Guide | Namma Auction',
     'Comprehensive IPL Mega Auction 2026 rules, purse mathematics, atomic bidding increments, franchise playbooks, and AI bot engine.'
   );
 
@@ -282,7 +282,7 @@ const GameGuide = () => {
             </h1>
             <p className="text-sm text-gray-500 mb-6">Last updated: October 2026 • Official Regulations</p>
             <p className="text-base text-[#E5E5E5] leading-relaxed">
-              Master the mechanics, purse discipline, atomic bidding increments, franchise strategy archetypes, and autonomous AI engine that power the CrickAuction simulator.
+              Master the mechanics, purse discipline, atomic bidding increments, franchise strategy archetypes, and autonomous AI engine that power the Namma Auction simulator.
             </p>
           </div>
 

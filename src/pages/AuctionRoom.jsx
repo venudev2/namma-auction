@@ -38,7 +38,6 @@ import PageLoader from '../components/PageLoader';
 import PageBackground from '../components/PageBackground';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AuctionCountdown from '../components/AuctionCountdown';
-import AdSlot, { AuctionRoomAd, AuctionMobileBannerAd, DEFAULT_AUCTION_ROOM_SLOT } from '../components/AdSlot';
 import useRoomServer from '../hooks/useRoomServer';
 import { SERVER_LOCAL, withServerParam } from '../lib/auctionServers';
 import { isLocalRoom } from '../lib/localAuctionEngine';
@@ -56,7 +55,7 @@ import {
 
 const AuctionRoom = () => {
    const { id } = useParams();
-   useDocumentTitle(`Auction Room #${id || ''} | CrickAuction`, 'Live multiplayer IPL Auction bidding arena.', true);
+   useDocumentTitle(`Auction Room #${id || ''} | Namma Auction`, 'Live multiplayer IPL Auction bidding arena.', true);
    const navigate = useNavigate();
    const { server, ready: serverReady } = useRoomServer(id);
    const {
@@ -86,7 +85,7 @@ const AuctionRoom = () => {
    const [error, setError] = useState('');
    const [copied, setCopied] = useState(false);
    const [showPlayersOverlay, setShowPlayersOverlay] = useState(false);
-   const [activeOverlayTab, setActiveOverlayTab] = useState('upcoming');
+   const [activeOverlayTab, setActiveOverlayTab] = useState('sold');
    const [searchQuery] = useState('');
    const [selectedTeamId, setSelectedTeamId] = useState(null);
    const [mobileTab, setMobileTab] = useState('arena'); // arena, squad, activity, chat
@@ -677,6 +676,48 @@ const AuctionRoom = () => {
    }, [currentAuction, user]);
 
    const audioCtxRef = useRef(null);
+   
+   // Realistic wooden gavel / auctioneer hammer double-strike sound synthesizer
+   const playGavelStrike = useCallback(() => {
+      try {
+         if (!audioCtxRef.current) {
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+         }
+         const ctx = audioCtxRef.current;
+         if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+         }
+         const now = ctx.currentTime;
+         // Double wooden gavel strike: "THUD! ... THUD!"
+         [0, 0.16].forEach((offset, idx) => {
+            const t = now + offset;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(idx === 0 ? 340 : 290, t);
+            osc.frequency.exponentialRampToValueAtTime(50, t + 0.14);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(idx === 0 ? 1200 : 950, t);
+            filter.frequency.exponentialRampToValueAtTime(140, t + 0.14);
+
+            gain.gain.setValueAtTime(idx === 0 ? 0.85 : 0.65, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(t);
+            osc.stop(t + 0.15);
+         });
+      } catch {
+         // AudioContext unavailable or blocked; non-fatal.
+      }
+   }, []);
+
    const playBeep = useCallback((freq = 440, duration = 0.1) => {
       if (displayAuctionState?.status === 'paused') return;
       try {
@@ -758,6 +799,7 @@ const AuctionRoom = () => {
          const currentKey = `sold_${displayAuctionState?.highBidderTeamId}_${displayAuctionState?.currentBid}`;
          if (lastHandledSoundStatusRef.current !== currentKey) {
             lastHandledSoundStatusRef.current = currentKey;
+            playGavelStrike();
 
             const teamId = displayAuctionState?.highBidderTeamId;
             const colorMap = {
@@ -1067,7 +1109,7 @@ const AuctionRoom = () => {
                                     }`}
                               >
                                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 p-1.5 flex items-center justify-center ${isJoining ? 'animate-pulse' : ''}`}>
-                                    <img src={t.logo} alt={`${t.name} Logo`} className="w-full h-full object-contain" />
+                                    <img src={t.logo} alt={`${t.name} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = t.fallbackLogo || `/logos/${t.id}.svg`; }} />
                                  </div>
                                  <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight ${isJoining ? 'text-white' : isTaken ? 'text-slate-600' : 'text-slate-400 group-hover:text-white'}`}>
                                     {isJoining ? 'Joining...' : isTaken ? 'Taken' : t.id}
@@ -1234,8 +1276,9 @@ const AuctionRoom = () => {
 
          <div className="w-full flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden relative pb-[max(4.5rem,calc(3.75rem+env(safe-area-inset-bottom)))] md:pb-0">
             <aside className={`${mobileTab === 'squad' ? 'flex' : 'hidden'} md:flex flex-1 md:flex-none md:shrink-0 w-full md:w-56 lg:w-64 xl:w-80 bg-[#0c0d10]/90 backdrop-blur-xl border-r border-white/10 flex-col h-full overflow-hidden relative z-10`}>
-               <div className="h-14 compact:h-12 border-b border-white/10 bg-[#0c0d10] flex items-center px-6 shrink-0">
+               <div className="h-14 compact:h-12 border-b border-white/10 bg-[#0c0d10] flex items-center justify-between px-6 shrink-0">
                   <span className="text-[10px] compact:text-[9px] font-pixel text-slate-400 uppercase tracking-widest leading-none">Auction Teams</span>
+                  <span className="text-[9px] font-pixel text-amber-400/80 uppercase tracking-wider">Live Ranked</span>
                </div>
 
                <div className="flex-1 overflow-y-auto p-4 compact:p-3 pb-28 sm:pb-8 md:pb-4 custom-scrollbar touch-pan-y min-h-0">
@@ -1257,7 +1300,7 @@ const AuctionRoom = () => {
                                     {idx + 1}
                                  </span>
                                  <div className="w-8 h-8 compact:w-7 compact:h-7 rounded-lg bg-white/5 p-1 flex items-center justify-center shrink-0">
-                                    <img src={t.logo} alt={`${t.name} Logo`} className="w-full h-full object-contain" />
+                                    <img src={t.logo} alt={`${t.name} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = t.fallbackLogo || `/logos/${t.id}.svg`; }} />
                                  </div>
                                  <div className="overflow-hidden">
                                     <h5 className="text-[11px] compact:text-[10px] font-bold text-white leading-tight truncate max-w-[110px]">{t.name}</h5>
@@ -1282,9 +1325,16 @@ const AuctionRoom = () => {
                                     <span className="text-[10px] compact:text-[9px] font-bold block leading-none text-gray-200">
                                        ₹{formatCrores(teamDoc?.budgetRemaining ?? toFiniteNumber(currentAuction?.settings?.budget, 120))} Cr
                                     </span>
-                                    <span className="text-[8px] compact:text-[7px] font-bold text-gray-500 uppercase tracking-widest mt-0.5 block">
+                                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                       <span className="text-[8px] compact:text-[7px] font-bold text-gray-500 uppercase tracking-widest block">
                                        {teamDoc?.squad?.length || 0}/{toFiniteNumber(currentAuction?.squadLimit, 25)}
-                                    </span>
+                                       </span>
+                                       {teamDoc?.squad?.length > 0 && ratingInfo?.avgRating && (
+                                          <span className="text-[8px] compact:text-[7px] font-mono font-bold text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded border border-amber-400/20">
+                                             ★ {ratingInfo.avgRating}
+                                          </span>
+                                       )}
+                                    </div>
                                  </div>
                                  <ChevronDown size={12} className={`text-gray-500 transition-transform duration-300 ${isSelected ? 'rotate-180' : ''}`} />
                               </div>
@@ -1338,7 +1388,7 @@ const AuctionRoom = () => {
                                                          {playersInRole.map((p, sidx) => (
                                                             <div key={sidx} className="py-1 flex items-center justify-between group hover:bg-white/[0.01] rounded-lg px-1 transition-all">
                                                                <div className="flex items-center gap-2">
-                                                                  <img src={p?.image} alt={p?.name || 'Player'} className="w-5 h-5 object-contain rounded bg-white/5" />
+                                                                  <img src={p?.image} alt={p?.name || 'Player'} className="w-5 h-5 object-contain rounded bg-white/5" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = getPlayerAvatar(p?.name); }} />
                                                                   <div className="overflow-hidden">
                                                                      <div className="flex items-center gap-1">
                                                                         <h5 className="text-[10px] compact:text-[9px] font-semibold text-gray-200 truncate max-w-[80px]">{p?.name}</h5>
@@ -1375,7 +1425,6 @@ const AuctionRoom = () => {
                <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 compact:p-4 pb-28 sm:pb-12 md:pb-8 flex flex-col items-center custom-scrollbar touch-pan-y">
                   <div className="w-full max-w-4xl flex flex-col gap-4 md:gap-6">
                      {/* Mobile Ad Slot (above main player or bidding card) */}
-                     <AuctionMobileBannerAd />
 
                      <AnimatePresence mode="wait">
                         {(displayAuctionState?.status === 'sold' || displayAuctionState?.status === 'unsold') ? (() => {
@@ -1402,7 +1451,7 @@ const AuctionRoom = () => {
                                         <div className="flex justify-between items-start">
                                            {isSold && buyerTeam ? (
                                               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/15 shadow-lg">
-                                                 <img src={buyerTeam.logo} alt={`${buyerTeam.name} Logo`} className="w-full h-full object-contain" />
+                                                 <img src={buyerTeam.logo} alt={`${buyerTeam.name} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = buyerTeam.fallbackLogo || `/logos/${buyerTeam.id}.svg`; }} />
                                               </div>
                                            ) : (
                                               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-500/10 backdrop-blur-md rounded-2xl p-2 border border-red-500/20 flex items-center justify-center">
@@ -1624,7 +1673,7 @@ const AuctionRoom = () => {
                                     title={`${rawBidderName} (${fullName})`}
                                  >
                                     <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white/5 border border-white/10 p-0.5 flex items-center justify-center shrink-0">
-                                       <img src={bidderTeam?.logo} alt="High Bidder Team Logo" className="w-full h-full object-contain" />
+                                       <img src={bidderTeam?.logo} alt="High Bidder Team Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = bidderTeam?.fallbackLogo || `/logos/${bidderTeam?.id}.svg`; }} />
                                     </div>
                                     <div className="flex flex-col min-w-0 text-left">
                                        <span className="text-[7.5px] sm:text-[8px] font-pixel text-slate-400 uppercase tracking-widest truncate leading-tight">
@@ -1692,33 +1741,6 @@ const AuctionRoom = () => {
                                        );
                                     })()}
 
-                                    {/* Quick Jump Bid Buttons */}
-                                    {!spectateMode && displayAuctionState?.status === 'bidding' && (
-                                       <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 px-1">
-                                          <span className="text-[10px] font-pixel text-slate-400 uppercase tracking-widest mr-auto hidden xs:inline">Jump Bid:</span>
-                                          {[1, 1.5, 2].map((jump) => {
-                                             const current = toFiniteNumber(displayAuctionState?.currentBid, 0);
-                                             const targetAmount = r2(current === 0 ? toFiniteNumber(currentPlayer?.basePrice, 0) + jump : current + jump);
-                                             const isAffordable = (team?.budgetRemaining || 0) >= targetAmount;
-                                             const isLeading = displayAuctionState?.highBidderId === user?.uid;
-                                             const disabled = !team || isLeading || !isAffordable || isBiddingInFlight;
-
-                                             return (
-                                                <button
-                                                   key={jump}
-                                                   type="button"
-                                                   onClick={() => handleBid(targetAmount)}
-                                                   disabled={disabled}
-                                                   className="flex-1 sm:flex-initial px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 disabled:opacity-30 disabled:border-white/5 disabled:text-slate-500 disabled:pointer-events-none transition-all active:scale-95 cursor-pointer text-center"
-                                                   title={disabled ? (isLeading ? 'Leading bidder' : 'Insufficient budget') : `Jump bid to ₹${formatCrores(targetAmount)} Cr`}
-                                                >
-                                                   +{jump} Cr <span className="opacity-70 text-[10px] hidden sm:inline">(₹{formatCrores(targetAmount)})</span>
-                                                </button>
-                                             );
-                                          })}
-                                       </div>
-                                    )}
-
                                     <div className="flex gap-2 sm:gap-3 md:gap-4">
                                        {/* Pass / Next Lot Button (Every Human Manager during bidding; Host during celebration) */}
                                        {!spectateMode && (displayAuctionState?.status === 'bidding' || isAdmin) && (
@@ -1784,13 +1806,6 @@ const AuctionRoom = () => {
                         )}
                      </AnimatePresence>
 
-                     {/* Arena Ad Slot (strictly visible on mobile screens only) */}
-                     <div className="w-full block md:hidden">
-                        <AuctionRoomAd
-                           slot={import.meta.env.VITE_ADSENSE_AUCTION_ROOM_SLOT || DEFAULT_AUCTION_ROOM_SLOT}
-                           className="w-full mt-2 mb-6"
-                        />
-                     </div>
                   </div>
                </main>
             </div>
@@ -1988,7 +2003,7 @@ const AuctionRoom = () => {
                         <button onClick={() => setShowPlayersOverlay(false)} className="w-10 h-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"><X size={20} /></button>
                      </div>
                      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar snap-x snap-mandatory shrink-0">
-                        {['upcoming', 'sold', 'unsold', 'leaderboard'].map(tab => (
+                        {['sold', 'unsold', 'leaderboard'].map(tab => (
                            <button
                               key={tab}
                               onClick={() => setActiveOverlayTab(tab)}
@@ -2016,42 +2031,6 @@ const AuctionRoom = () => {
                                  {activeOverlayTab === 'leaderboard' && "Top sold players will appear here once bidding starts."}
                                  {activeOverlayTab === 'upcoming' && "No upcoming players remaining in the inventory."}
                               </p>
-                           </div>
-                        ) : activeOverlayTab === 'upcoming' ? (
-                           <div className="space-y-8 sm:space-y-12">
-                              {Object.entries(groupedUpcomingPlayers || {}).map(([setName, players]) => (
-                                 <div key={setName} className="space-y-4 sm:space-y-6">
-                                    <div className="flex items-center gap-4 sm:gap-6">
-                                       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                                       <h3 className="text-xs sm:text-sm font-pixel text-white uppercase tracking-widest bg-white/5 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full border border-white/10 whitespace-nowrap">
-                                          {setName}
-                                       </h3>
-                                       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                                    </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3 md:gap-4">
-                                       {players.map(p => (
-                                          <div key={p.id} className="bg-white/5 border border-white/5 p-2.5 sm:p-3 rounded-2xl hover:bg-white/10 transition-all group flex flex-col justify-between">
-                                             <div>
-                                                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-white/10 rounded-xl sm:rounded-2xl overflow-hidden mb-2 sm:mb-3 border border-white/10 group-hover:scale-105 transition-transform mx-auto">
-                                                   <img src={p.image} className="w-full h-full object-contain" alt={p.name} />
-                                                </div>
-                                                <div className="text-center">
-                                                   <h5 className="text-[11px] sm:text-xs font-black truncate mb-0.5 leading-tight">{p.name}</h5>
-                                                   <div className="flex items-center justify-center gap-1.5 mb-2">
-                                                      <span className="text-[8px] font-bold text-gray-400 uppercase bg-white/5 px-1.5 py-0.5 rounded">{p.role}</span>
-                                                   </div>
-                                                </div>
-                                             </div>
-                                             <div className="bg-black/40 px-2 py-1 rounded-lg border border-white/5 text-center">
-                                                <span className="text-[9px] sm:text-[10px] font-pixel text-slate-300">
-                                                   ₹{formatCrores(p.basePrice)} Cr
-                                                </span>
-                                             </div>
-                                          </div>
-                                       ))}
-                                    </div>
-                                 </div>
-                              ))}
                            </div>
                         ) : (
                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 sm:gap-3 md:gap-4">
@@ -2282,7 +2261,7 @@ const AuctionRoom = () => {
                            <div key={player.id} className="bg-white/[0.02] border border-white/10 p-4 rounded-2xl flex items-center justify-between group">
                               <div className="flex items-center gap-4">
                                  <div className={`w-12 h-12 rounded-2xl bg-white/5 border border-white/10 p-1.5 flex items-center justify-center`}>
-                                    <img src={TEAMS.find(t => t.id === player.team)?.logo} alt="Player Team Logo" className="w-full h-full object-contain" />
+                                    <img src={TEAMS.find(t => t.id === player.team)?.logo} alt="Player Team Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `/logos/${player.team}.svg`; }} />
                                  </div>
                                  <div><h5 className="text-sm font-black uppercase flex items-center gap-2">{player.name}{player.isHost && <span className="px-1.5 py-0.5 bg-white/10 text-slate-300 border border-white/10 font-pixel text-[8px] rounded-md">HOST</span>}</h5><p className="text-[10px] font-bold text-gray-500 uppercase">{TEAMS.find(t => t.id === player.team)?.name || player.team || player.teamName}</p></div>
                               </div>
@@ -2425,7 +2404,7 @@ const SoldCard = ({ msg }) => {
             <div className="relative h-full flex flex-col p-4 sm:p-6 z-10 justify-between">
                <div className="flex justify-between items-start mb-2 sm:mb-4">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-md rounded-xl sm:rounded-2xl p-1.5 sm:p-2 border border-white/10">
-                     <img src={team?.logo} alt={`${team?.name || 'Franchise'} Logo`} className="w-full h-full object-contain " />
+                     <img src={team?.logo} alt={`${team?.name || 'Franchise'} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = team?.fallbackLogo || `/logos/${team?.id}.svg`; }} />
                   </div>
                   <div className="text-right uppercase tracking-[0.15em] sm:tracking-[0.2em]">
                      <p className="text-[7px] sm:text-[8px] font-pixel text-slate-400 mb-0.5">IPL Auction</p>

@@ -55,6 +55,28 @@ test('mega player order contains every modern player exactly once', () => {
   assert.equal(new Set(order).size, modernPlayers.length);
 });
 
+test('selective player order only includes players from selected tiers', () => {
+  const selectedSets = ['Tier 1', 'Tier 2'];
+  const expectedPlayers = IPL_PLAYERS.filter((p) => p.set !== 'Legends' && selectedSets.includes(p.set));
+  const order = generatePlayerOrder('mega', selectedSets);
+  assert.equal(order.length, expectedPlayers.length);
+  assert.equal(new Set(order).size, expectedPlayers.length);
+  order.forEach((idx) => {
+    assert.ok(selectedSets.includes(IPL_PLAYERS[idx].set));
+  });
+});
+
+test('tier-based auction flow starts with Tier 1 before Tier 2 and Tier 3', () => {
+  const order = generatePlayerOrder('mega');
+  const t1Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 1' ? i : -1)).filter(i => i >= 0));
+  const t2Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 2' ? i : -1)).filter(i => i >= 0));
+  
+  // All Tier 1 players should precede all Tier 2 players
+  const firstT2Index = order.findIndex(idx => t2Indices.has(idx));
+  const lastT1Index = order.findLastIndex(idx => t1Indices.has(idx));
+  assert.ok(lastT1Index < firstT2Index, 'Tier 1 must finish before Tier 2 starts');
+});
+
 test('legends player order contains every legend player exactly once', () => {
   const legendPlayers = IPL_PLAYERS.filter((p) => p.set === 'Legends');
   const indianLegends = legendPlayers.filter((p) => p.type === 'Indian');

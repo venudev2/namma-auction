@@ -9,6 +9,9 @@ import { getNextBidAmount } from './auctionRules.js';
  * Higher = more willing to pay a premium.
  */
 const SET_TIER = {
+  'Tier 1':        { base: 2.2, max: 4.5 },  // Elite marquee & superstars (Bumrah, SKY, etc.)
+  'Tier 2':        { base: 1.2, max: 2.5 },  // Established & experienced IPL stars
+  'Tier 3':        { base: 0.7, max: 1.4 },  // Emerging, uncapped & young players
   'Marquee Set 1': { base: 2.2, max: 4.5 },  // Elite marquee (Bumrah, SKY, etc.)
   'Set 1':         { base: 1.5, max: 3.0 },  // Capped Indian stars
   'Set 2':         { base: 1.2, max: 2.2 },  // Good capped players
@@ -97,7 +100,7 @@ const TEAM_PREFERENCES = {
  */
 function computeBotValuation({ player, botTeam, squadLimit, budgetRemaining, initialBudget, randomFn = Math.random }) {
   const basePrice = toFiniteNumber(player.basePrice, 0.30);
-  const set = player.set || 'Set 4';
+  const set = player.tier || player.set || 'Tier 3';
   const teamId = botTeam.teamId;
 
   // 1. Set tier drives the baseline

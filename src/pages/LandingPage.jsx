@@ -56,9 +56,7 @@ import {
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import ConfirmDialog from "../components/ConfirmDialog";
-import AuctionActivityFeed from "../components/AuctionActivityFeed";
 import Footer from "../components/Footer";
-import AdSlot from "../components/AdSlot";
 import CommunitySection from "../components/community/CommunitySection";
 import CommunityBanner from "../components/community/CommunityBanner";
 import ServerSwitcher from "../components/ServerSwitcher";
@@ -155,14 +153,39 @@ const isSessionLocal = (session) =>
 
 const LandingPage = () => {
   useDocumentTitle(
-    "CrickAuction - Multiplayer T20 Auction Simulator | Fan-Made Cricket Game",
+    "Namma Auction - Multiplayer T20 Auction Simulator | Fan-Made Cricket Game",
     "An independent, fan-made multiplayer T20 cricket auction simulator. Host tactical auctions with friends, manage squad budgets, and draft your dream T20 squad.",
   );
 
   const [selectedTeam, setSelectedTeam] = useState("MI");
   const [activeTab, setActiveTab] = useState("new");
   const [auctionType, setAuctionType] = useState("mega"); 
+  const [selectedTiers, setSelectedTiers] = useState(["Tier 1", "Tier 2", "Tier 3"]);
+  const [maxLots, setMaxLots] = useState(null);
   const [playSolo, setPlaySolo] = useState(false);
+
+  const handleTierPreset = (preset) => {
+    if (preset === "all") {
+      setSelectedTiers(["Tier 1", "Tier 2", "Tier 3"]);
+      setMaxLots(null);
+    } else if (preset === "tier1") {
+      setSelectedTiers(["Tier 1"]);
+      setMaxLots(null);
+    } else if (preset === "tier1_2") {
+      setSelectedTiers(["Tier 1", "Tier 2"]);
+      setMaxLots(null);
+    }
+  };
+
+  const handleToggleTier = (tier) => {
+    setSelectedTiers((prev) => {
+      if (prev.includes(tier)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter((t) => t !== tier);
+      }
+      return [...prev, tier];
+    });
+  };
   const [isPublicRoom, setIsPublicRoom] = useState(true);
   const [roomCode, setRoomCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -242,7 +265,7 @@ const LandingPage = () => {
   const [expandedSession, setExpandedSession] = useState(null);
   const [sessionToDelete, setSessionToDelete] = useState(null);
 
-  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(true);
   const [guestName, setGuestName] = useState("");
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
@@ -541,7 +564,11 @@ const LandingPage = () => {
         roomId,
         humanUser: { uid: user.uid, displayName, team: selectedTeam },
         auctionType,
-        settings: { bidTimer: 10 },
+        settings: {
+          bidTimer: 10,
+          selectedSets: selectedTiers,
+          maxLots: maxLots,
+        },
         bidTimer: 10,
       });
 
@@ -589,6 +616,10 @@ const LandingPage = () => {
               auctionType,
               isPublicRoom,
               selectedServer,
+              {
+                selectedSets: selectedTiers,
+                maxLots: maxLots,
+              },
             );
             newRoomId = candidate;
             break;
@@ -658,7 +689,7 @@ const LandingPage = () => {
 
         <div className="text-center mb-3 sm:mb-4 z-10 relative max-w-2xl px-2 sm:px-4 mt-1 sm:mt-2">
           <h1 className="sr-only">
-            CrickAuction - Fan-Made Multiplayer T20 Cricket Auction Simulator
+            Namma Auction - Fan-Made Multiplayer T20 Cricket Auction Simulator
           </h1>
 
           <div className="text-[clamp(1.25rem,2.8vw,2.35rem)] font-pixel leading-none text-balance bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/60">
@@ -691,21 +722,14 @@ const LandingPage = () => {
         </div>
 
         <PanelSurface className="mt-2 sm:mt-3">
-          <div className="bg-[#0c0d10] rounded-[2.2rem] border border-white/10 grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch divide-y lg:divide-y-0 lg:divide-x divide-white/10 overflow-hidden">
-            {/* Left Side: Live Activity Feed */}
-            <div className="lg:col-span-7 w-full flex flex-col p-6 md:p-8 relative">
-              <AuctionActivityFeed stats={auctionStats} />
-            </div>
-
-            {/* Right Side: Welcome Login Form */}
-            <div className="lg:col-span-5 w-full p-8 md:p-10 flex flex-col items-center justify-center">
+          <div className="bg-[#0c0d10] rounded-[2.2rem] border border-white/10 max-w-xl mx-auto w-full p-8 md:p-10 flex flex-col items-center justify-center overflow-hidden">
               <h2 className="text-xl font-black uppercase tracking-tight mb-1">
-                {isGuestMode ? "Guest Access" : "Welcome, Manager"}
+                {isGuestMode ? "Enter Auction Hub" : "Welcome, Manager"}
               </h2>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8">
                 {isGuestMode
-                  ? "Enter a name to join"
-                  : "Sign in to enter the auction hub"}
+                  ? "Enter your name to start playing"
+                  : "Sign in with Google"}
               </p>
 
               {!isGuestMode ? (
@@ -765,7 +789,7 @@ const LandingPage = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full h-14 relative overflow-hidden group/submit rounded-xl bg-white hover:bg-slate-200 text-black shadow-[0_10px_30px_rgba(255,255,255,0.08)] cursor-pointer transition-all active:scale-[0.98]"
+                    className="w-full h-14 relative overflow-hidden group/submit rounded-xl bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 hover:from-red-500 hover:to-yellow-300 text-black font-black shadow-[0_10px_30px_rgba(234,179,8,0.25)] cursor-pointer transition-all active:scale-[0.98]"
                   >
                     <div className="relative flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] text-sm">
                       {isSubmitting ? (
@@ -796,10 +820,8 @@ const LandingPage = () => {
                 <p className="mt-4 text-xs text-red-500 font-bold">{error}</p>
               )}
             </div>
-          </div>
         </PanelSurface>
 
-        <AdSlot className="mt-8 mb-4 px-2.5 sm:px-4" />
 
         <CommunitySection />
 
@@ -823,7 +845,7 @@ const LandingPage = () => {
       {/* Hero */}
       <div className="text-center mb-3 sm:mb-4 z-10 relative max-w-2xl px-2 sm:px-4 mt-1 sm:mt-2">
         <h1 className="sr-only">
-          CrickAuction - Fan-Made Multiplayer T20 Cricket Auction Simulator
+          Namma Auction - Fan-Made Multiplayer T20 Cricket Auction Simulator
         </h1>
 
         <div className="text-[clamp(1.25rem,2.8vw,2.35rem)] font-pixel leading-none text-balance bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/60">
@@ -856,14 +878,7 @@ const LandingPage = () => {
       </div>
 
       <PanelSurface className="mt-2 sm:mt-3">
-        <div className="bg-[#0c0d10] rounded-[2.2rem] border border-white/10 grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch divide-y lg:divide-y-0 lg:divide-x divide-white/10 overflow-hidden">
-          {/* Left Side: Live signings */}
-          <div className="lg:col-span-5 w-full flex flex-col p-6 md:p-8 relative">
-            <AuctionActivityFeed stats={auctionStats} />
-          </div>
-
-          {/* Right Side: Create/Join/History form */}
-          <div className="lg:col-span-7 w-full p-4 sm:p-6 md:p-8 flex flex-col">
+        <div className="bg-[#0c0d10] rounded-[2.2rem] border border-white/10 max-w-3xl mx-auto w-full p-4 sm:p-6 md:p-8 flex flex-col overflow-hidden">
             {availableServers.length > 1 && !(activeTab === "new" && playSolo) && (
               <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
                 <div className="min-w-0">
@@ -1179,6 +1194,153 @@ const LandingPage = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Player Pool & Tiers Selection (Tier 1, Tier 2, Tier 3) */}
+                {auctionType !== "legends" && (
+                  <div className="p-3 sm:p-4 bg-white/[0.02] border border-amber-400/20 rounded-xl sm:rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-[11px] sm:text-[12px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                          <span>Player Pool & Tiers</span>
+                        </h3>
+                        <p className="text-[8px] sm:text-[9px] text-gray-400 font-medium">
+                          Select which player tiers to auction. Shuffled Tier 1 ➔ Tier 2 ➔ Tier 3.
+                        </p>
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-400">
+                        {selectedTiers.length === 3
+                          ? "All 257 Stars"
+                          : selectedTiers.length === 1 && selectedTiers[0] === "Tier 1"
+                          ? "47 Superstars"
+                          : selectedTiers.join(" • ")}
+                      </span>
+                    </div>
+
+                    {/* Presets */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleTierPreset("all")}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                          selectedTiers.length === 3
+                            ? "bg-amber-400 text-black font-black shadow-sm"
+                            : "bg-white/5 hover:bg-white/10 text-slate-300"
+                        }`}
+                      >
+                        All Tiers (1, 2, 3)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTierPreset("tier1")}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                          selectedTiers.length === 1 && selectedTiers.includes("Tier 1")
+                            ? "bg-amber-400 text-black font-black shadow-sm"
+                            : "bg-white/5 hover:bg-white/10 text-slate-300"
+                        }`}
+                      >
+                        Tier 1 Only (Superstars Mini Auction)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTierPreset("tier1_2")}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                          selectedTiers.length === 2 &&
+                          selectedTiers.includes("Tier 1") &&
+                          selectedTiers.includes("Tier 2")
+                            ? "bg-amber-400 text-black font-black shadow-sm"
+                            : "bg-white/5 hover:bg-white/10 text-slate-300"
+                        }`}
+                      >
+                        Tier 1 + 2 (Top Stars)
+                      </button>
+                    </div>
+
+                    {/* Tier Checkboxes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                      {[
+                        {
+                          id: "Tier 1",
+                          label: "Tier 1: Marquees & Superstars",
+                          desc: "₹2.00 Cr Base • 47 Players",
+                        },
+                        {
+                          id: "Tier 2",
+                          label: "Tier 2: Established Stars",
+                          desc: "₹1–1.50 Cr Base • 85 Players",
+                        },
+                        {
+                          id: "Tier 3",
+                          label: "Tier 3: Emerging & Uncapped",
+                          desc: "₹30–50L Base • 125 Players",
+                        },
+                      ].map((t) => {
+                        const isChecked = selectedTiers.includes(t.id);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => handleToggleTier(t.id)}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                              isChecked
+                                ? "bg-amber-400/10 border-amber-400/30 text-white"
+                                : "bg-black/30 border-white/5 text-slate-600"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`text-[9.5px] font-bold uppercase ${
+                                  isChecked ? "text-amber-300" : "text-slate-500"
+                                }`}
+                              >
+                                {t.id}
+                              </span>
+                              <div
+                                className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold ${
+                                  isChecked
+                                    ? "bg-amber-400 text-black"
+                                    : "border border-white/20 text-transparent"
+                                }`}
+                              >
+                                ✓
+                              </div>
+                            </div>
+                            <span className="text-[8px] text-slate-400 font-medium mt-1">
+                              {t.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Lot Limit for Mini Auctions */}
+                    <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[9px] font-mono text-slate-400">
+                        Mini Auction Lot Cap:
+                      </span>
+                      <div className="flex gap-1.5">
+                        {[
+                          { val: null, label: "All Lots" },
+                          { val: 20, label: "20 Lots" },
+                          { val: 35, label: "35 Lots" },
+                          { val: 50, label: "50 Lots" },
+                        ].map((cap) => (
+                          <button
+                            key={String(cap.val)}
+                            type="button"
+                            onClick={() => setMaxLots(cap.val)}
+                            className={`px-2 py-0.5 rounded text-[8.5px] font-mono transition-all cursor-pointer ${
+                              maxLots === cap.val
+                                ? "bg-white text-black font-bold"
+                                : "bg-white/5 text-slate-400 hover:text-white"
+                            }`}
+                          >
+                            {cap.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Solo vs AI bots Toggle */}
                 <div className="p-3 sm:p-4 bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl flex items-center justify-between gap-3">
@@ -1942,7 +2104,6 @@ const LandingPage = () => {
               </p>
             )}
           </div>
-        </div>
       </PanelSurface>
 
       <ConfirmDialog
@@ -1956,7 +2117,6 @@ const LandingPage = () => {
         onCancel={() => setSessionToDelete(null)}
       />
 
-      <AdSlot className="mt-8 mb-4 px-2.5 sm:px-4" />
 
       <CommunitySection />
 

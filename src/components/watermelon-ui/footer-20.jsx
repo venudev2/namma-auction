@@ -69,9 +69,10 @@ export default function Footer20() {
             {/* Logo */}
             <Link
               to="/"
-              className="inline-flex items-center gap-2 font-pixel text-xl sm:text-2xl text-white select-none tracking-tight w-fit"
+              className="inline-flex items-center gap-2.5 font-pixel text-xl sm:text-2xl text-white select-none tracking-tight w-fit group"
             >
-              CrickAuction
+              <img src="/logo.png" alt="Namma Auction" className="w-6 h-6 object-contain group-hover:rotate-12 transition-transform duration-300" />
+              <span>Namma Auction</span>
             </Link>
 
             {/* Description */}
@@ -83,31 +84,20 @@ export default function Footer20() {
 
             {/* Creator / Craft Attribution */}
             <div className="pt-2">
-              <a
-                href="https://ershaurya.dev"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors group/craft"
-              >
-                <span>
-                  Concept crafted by{' '}
-                  <span className="text-white underline underline-offset-2">
-                    Shaurya Upadhyay
-                  </span>
+              <p className="text-xs font-semibold text-gray-400">
+                Created by{' '}
+                <span className="text-white font-bold">
+                  MALUR and MALVALLI MALLI (OG creators)
                 </span>
-                <ArrowUpRight
-                  size={14}
-                  className="group-hover/craft:translate-x-0.5 group-hover/craft:-translate-y-0.5 transition-transform"
-                />
-              </a>
+              </p>
               <p className="text-[11px] text-gray-400 uppercase tracking-wider mt-2">
-                © {currentYear} CrickAuction. All rights reserved.
+                © {currentYear} Namma Auction. All rights reserved.
               </p>
             </div>
           </motion.div>
 
           {/* Right Columns (Links Grid) */}
-          <div className="lg:col-span-7 xl:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-10">
+          <div className="lg:col-span-7 xl:col-span-8 grid grid-cols-2 gap-8 md:gap-10">
             {/* Navigation Column */}
             <motion.div {...itemProps} className="flex flex-col gap-4">
               <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
@@ -183,52 +173,6 @@ export default function Footer20() {
                 </li>
               </ul>
             </motion.div>
-
-            {/* Connect Column */}
-            <motion.div {...itemProps} className="flex flex-col gap-4 col-span-2 sm:col-span-1">
-              <span className="text-xs font-black uppercase tracking-[0.2em] text-white">
-                Connect
-              </span>
-              <ul className="flex flex-col gap-2.5">
-                <li>
-                  <a
-                    href="https://github.com/Shaurya01836/ipl-auction"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[14px] text-gray-400 hover:text-white transition-colors group/git"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="16"
-                      height="16"
-                      className="fill-current shrink-0"
-                    >
-                      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.22-1.552 3.32-1.23 3.32-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-                    </svg>
-                    <span>GitHub Star</span>
-                    <ArrowUpRight
-                      size={12}
-                      className="group-hover/git:translate-x-0.5 group-hover/git:-translate-y-0.5 transition-transform"
-                    />
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://ershaurya.dev"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[14px] text-gray-400 hover:text-white transition-colors group/dev"
-                  >
-                    <Globe size={15} className="shrink-0" />
-                    <span>Developer Site</span>
-                    <ArrowUpRight
-                      size={12}
-                      className="group-hover/dev:translate-x-0.5 group-hover/dev:-translate-y-0.5 transition-transform"
-                    />
-                  </a>
-                </li>
-              </ul>
-            </motion.div>
           </div>
         </div>
 
@@ -238,7 +182,7 @@ export default function Footer20() {
           className="pt-6 pb-8 border-t border-white/[0.06] text-xs text-gray-500 leading-relaxed max-w-4xl"
         >
           <p>
-            <strong className="text-gray-400 font-medium">Disclaimer:</strong> CrickAuction is an independent, fan-made tactical cricket simulation game developed strictly for educational and entertainment purposes. It is not affiliated with, endorsed by, sponsored by, or associated with the Board of Control for Cricket in India (BCCI), the Indian Premier League (IPL), or any participating franchise. All team names, logos, player names, and associated trademarks remain the sole intellectual property of their respective rights holders.
+            <strong className="text-gray-400 font-medium">Disclaimer:</strong> Namma Auction is an independent, fan-made tactical cricket simulation game developed strictly for educational and entertainment purposes. It is not affiliated with, endorsed by, sponsored by, or associated with the Board of Control for Cricket in India (BCCI), the Indian Premier League (IPL), or any participating franchise. All team names, logos, player names, and associated trademarks remain the sole intellectual property of their respective rights holders.
           </p>
         </motion.div>
 
@@ -251,7 +195,7 @@ export default function Footer20() {
             className="w-full h-auto select-none transition-colors duration-300"
             viewBox="0 32 1100 80"
             preserveAspectRatio="xMidYMid meet"
-            aria-label="CRICKAUCTION"
+            aria-label="NAMMA AUCTION"
           >
             <defs>
               <linearGradient
@@ -278,7 +222,7 @@ export default function Footer20() {
               className="font-pixel font-black tracking-tighter"
               fontSize="135"
             >
-              CRICKAUCTION
+              NAMMA AUCTION
             </text>
           </svg>
         </motion.div>

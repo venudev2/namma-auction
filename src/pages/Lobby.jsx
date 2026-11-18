@@ -58,12 +58,14 @@ const useIsMobile = () => {
   return isMobile;
 };
 
+const AVAILABLE_TIERS = ['Tier 1', 'Tier 2', 'Tier 3'];
+
 const Lobby = () => {
   const { id } = useParams();
-  useDocumentTitle(`Lobby ${id ? `#${id}` : ''} | CrickAuction`, 'Live franchise team selection and auction hub.', true);
+  useDocumentTitle(`Lobby ${id ? `#${id}` : ''} | Namma Auction`, 'Live franchise team selection and auction hub.', true);
   const { server, ready: serverReady } = useRoomServer(id);
   const { user, loginWithGoogle, loginAsGuest, loading: authLoading } = useAuth();
-  const { joinAuction, currentAuction, loading: auctionLoading, messages, kickPlayer, updatePlayerTeam, startAuction, joinRoomDb, removeBotTeam, fillEmptyTeamsWithBots } = useAuction();
+  const { joinAuction, currentAuction, loading: auctionLoading, messages, kickPlayer, updatePlayerTeam, startAuction, joinRoomDb, removeBotTeam, fillEmptyTeamsWithBots, updateRoomSettings } = useAuction();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('players');
@@ -72,7 +74,7 @@ const Lobby = () => {
   const [isSelectingTeam, setIsSelectingTeam] = useState(null);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [guestName, setGuestName] = useState('');
-  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(true);
   const [banError, setBanError] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [showBotInfo, setShowBotInfo] = useState(false);
@@ -83,6 +85,45 @@ const Lobby = () => {
   });
 
   const isAdmin = currentAuction?.hostId === user?.uid;
+
+  const handleSelectSetPreset = async (preset) => {
+    if (!isAdmin) return;
+    let nextSets = ['Tier 1', 'Tier 2', 'Tier 3'];
+    if (preset === 'tier1') {
+      nextSets = ['Tier 1'];
+    } else if (preset === 'tier1_2') {
+      nextSets = ['Tier 1', 'Tier 2'];
+    }
+    await updateRoomSettings(id, {
+      ...(currentAuction?.settings || {}),
+      selectedSets: nextSets,
+    });
+  };
+
+  const handleToggleSet = async (tierName) => {
+    if (!isAdmin) return;
+    const current = currentAuction?.settings?.selectedSets || [...AVAILABLE_TIERS];
+    let next;
+    if (current.includes(tierName)) {
+      if (current.length <= 1) return;
+      next = current.filter(s => s !== tierName);
+    } else {
+      next = [...current, tierName];
+    }
+    await updateRoomSettings(id, {
+      ...(currentAuction?.settings || {}),
+      selectedSets: next,
+    });
+  };
+
+  const handleSetMaxLots = async (lots) => {
+    if (!isAdmin) return;
+    await updateRoomSettings(id, {
+      ...(currentAuction?.settings || {}),
+      maxLots: lots,
+    });
+  };
+
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const handleExitRequest = () => {
@@ -538,7 +579,7 @@ const Lobby = () => {
                     }`}
                 >
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/5 border border-white/5 rounded-2xl p-2 flex items-center justify-center">
-                    {isSelectingTeam === team.id ? <Loader2 className="animate-spin text-slate-200" /> : <img src={team.logo} alt={`${team.name || team.id} Logo`} className="w-full h-full object-contain" />}
+                    {isSelectingTeam === team.id ? <Loader2 className="animate-spin text-slate-200" /> : <img src={team.logo} alt={`${team.name || team.id} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = team.fallbackLogo || `/logos/${team.id}.svg`; }} />}
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-white">{team.id}</p>
@@ -677,7 +718,135 @@ const Lobby = () => {
               </div>
             </div>
 
+            
+            {/* Player Sets Selection (Host Controls & Lobby View) */}
+            <div className="mt-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Player Pool & Tiers</span>
+                {isAdmin ? (
+                  <span className="text-[8px] font-mono font-bold text-amber-400 uppercase tracking-wider">Host Control</span>
+                ) : (
+                  <span className="text-[8px] font-mono text-slate-500 uppercase">Room Setting</span>
+                )}
+              </div>
+
+              {isAdmin ? (
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSetPreset('all')}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                        !currentAuction?.settings?.selectedSets ||
+                        (Array.isArray(currentAuction?.settings?.selectedSets) &&
+                          currentAuction?.settings?.selectedSets.length === 3)
+                          ? 'bg-amber-400 text-black font-black shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      All Tiers (1, 2, 3)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSetPreset('tier1')}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                        Array.isArray(currentAuction?.settings?.selectedSets) &&
+                        currentAuction?.settings?.selectedSets.length === 1 &&
+                        currentAuction?.settings?.selectedSets.includes('Tier 1')
+                          ? 'bg-amber-400 text-black font-black shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      Tier 1 Only (Superstars Mini Auction)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSetPreset('tier1_2')}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase transition-all cursor-pointer ${
+                        Array.isArray(currentAuction?.settings?.selectedSets) &&
+                        currentAuction?.settings?.selectedSets.length === 2 &&
+                        currentAuction?.settings?.selectedSets.includes('Tier 1') &&
+                        currentAuction?.settings?.selectedSets.includes('Tier 2')
+                          ? 'bg-amber-400 text-black font-black shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      Tier 1 + 2 (Top Stars)
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 text-[8.5px] font-mono mt-1">
+                    {AVAILABLE_TIERS.map((tier) => {
+                      const isSelected =
+                        !currentAuction?.settings?.selectedSets ||
+                        currentAuction?.settings?.selectedSets.includes(tier);
+                      return (
+                        <button
+                          key={tier}
+                          type="button"
+                          onClick={() => handleToggleSet(tier)}
+                          className={`px-2 py-1 rounded-md border transition-all cursor-pointer flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-amber-400/15 border-amber-400/40 text-white font-bold'
+                              : 'bg-black/30 border-white/5 text-slate-600 line-through'
+                          }`}
+                        >
+                          <span>{tier}</span>
+                          <span className="text-[7.5px] text-slate-400">
+                            {tier === 'Tier 1' ? '(₹2 Cr Base)' : tier === 'Tier 2' ? '(₹1-1.5 Cr)' : '(₹30-50L)'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Lot Limit for Mini Auctions */}
+                  <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[8.5px] font-mono text-slate-400">
+                      Mini Auction Lot Cap:
+                    </span>
+                    <div className="flex gap-1.5">
+                      {[
+                        { val: null, label: 'All Lots' },
+                        { val: 20, label: '20 Lots' },
+                        { val: 35, label: '35 Lots' },
+                        { val: 50, label: '50 Lots' }
+                      ].map((cap) => (
+                        <button
+                          key={String(cap.val)}
+                          type="button"
+                          onClick={() => handleSetMaxLots(cap.val)}
+                          className={`px-2 py-0.5 rounded text-[8px] font-mono transition-all cursor-pointer ${
+                            currentAuction?.settings?.maxLots === cap.val ||
+                            (!currentAuction?.settings?.maxLots && cap.val === null)
+                              ? 'bg-white text-black font-bold'
+                              : 'bg-white/5 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {cap.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-slate-300 font-mono space-y-1">
+                  <div>
+                    {!currentAuction?.settings?.selectedSets || currentAuction?.settings?.selectedSets?.length === 0
+                      ? 'All Tiers Included (Tier 1 ➔ Tier 2 ➔ Tier 3 • ~257 Stars)'
+                      : `Selected Tiers: ${currentAuction.settings.selectedSets.join(' • ')}`}
+                  </div>
+                  {currentAuction?.settings?.maxLots && (
+                    <div className="text-[9px] text-amber-400">
+                      Capped at {currentAuction.settings.maxLots} lots
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Divider */}
+
             <div className="w-full h-px bg-white/5" />
 
             {/* Franchise Selector */}
@@ -715,7 +884,7 @@ const Lobby = () => {
                       )}
 
                       <div className={`w-9 h-9 rounded-xl bg-white/5 border border-white/5 p-1.5 flex items-center justify-center mb-1.5 transition-all duration-300 ${isMine ? 'scale-105 border-white/20 shadow-md' : 'group-hover/team:scale-105'}`}>
-                        {isSelectingTeam === team.id ? <Loader2 size={14} className="animate-spin text-white" /> : <img src={team.logo} alt={`${team.name || team.id} Logo`} className="w-full h-full object-contain" />}
+                        {isSelectingTeam === team.id ? <Loader2 size={14} className="animate-spin text-white" /> : <img src={team.logo} alt={`${team.name || team.id} Logo`} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = team.fallbackLogo || `/logos/${team.id}.svg`; }} />}
                       </div>
 
                       <span className={`text-[8px] font-black uppercase text-center tracking-tighter truncate w-full ${isMine ? 'text-white' : 'text-slate-500'}`}>
@@ -829,7 +998,7 @@ const Lobby = () => {
                             <div className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-xl border border-white/10 flex items-center justify-center shadow-lg relative overflow-hidden bg-white/5 p-1.5">
                               <div className="absolute inset-x-0 bottom-0 top-1/2 bg-black/5 pointer-events-none" />
                               {playerTeam ? (
-                                <img src={playerTeam.logo} alt={`${playerTeam.name || playerTeam.id} Logo`} className="w-full h-full object-contain relative z-10" />
+                                <img src={playerTeam.logo} alt={`${playerTeam.name || playerTeam.id} Logo`} className="w-full h-full object-contain relative z-10" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = playerTeam.fallbackLogo || `/logos/${playerTeam.id}.svg`; }} />
                               ) : (
                                 <span className="text-slate-500 relative z-10 text-xs">?</span>
                               )}

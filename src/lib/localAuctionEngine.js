@@ -141,7 +141,11 @@ export function localAuctionReducer(state, action) {
       });
 
       // Same lot order as cloud: grouped by player set, marquee first.
-      const playerOrder = generatePlayerOrder(auctionType);
+      const playerOrder = generatePlayerOrder(
+        auctionType,
+        action.selectedSets || action.settings?.selectedSets,
+        action.settings?.maxLots
+      );
 
       const firstPlayer = IPL_PLAYERS[playerOrder[0]] || IPL_PLAYERS[0];
       const now = action.now || Date.now();
