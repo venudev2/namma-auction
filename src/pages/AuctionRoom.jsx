@@ -42,7 +42,7 @@ import useRoomServer from '../hooks/useRoomServer';
 import { SERVER_LOCAL, withServerParam } from '../lib/auctionServers';
 import { isLocalRoom } from '../lib/localAuctionEngine';
 import useDocumentTitle from '../hooks/useDocumentTitle';
-import { getNextBidAmount } from '../lib/auctionRules';
+import { getNextBidAmount, normalizePlayerOrder } from '../lib/auctionRules';
 import {
    computeTeamSpent,
    countOverseas,
@@ -594,7 +594,11 @@ const AuctionRoom = () => {
          });
       });
 
-      const playerOrder = currentAuction?.playerOrder || Array.from({ length: IPL_PLAYERS.length }, (_, i) => i);
+      const rawOrder = currentAuction?.playerOrder;
+      const playerOrder = normalizePlayerOrder(rawOrder);
+      if (playerOrder.length === 0) {
+         return { upcoming: [], sold: [], unsold: [] };
+      }
       const currentPlayerId = displayAuctionState?.playerId;
       const currentPlayerIndexInOrder = playerOrder.indexOf(IPL_PLAYERS.findIndex(p => p.id === currentPlayerId));
 

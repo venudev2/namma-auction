@@ -1,7 +1,7 @@
 import { IPL_PLAYERS } from '../data/players.js';
 import { TEAMS } from '../data/teams.js';
 import { toFiniteNumber, countOverseas, isOverseasPlayer, r2 } from './auctionDisplay.js';
-import { getNextBidAmount, generatePlayerOrder } from './auctionRules.js';
+import { getNextBidAmount, generatePlayerOrder, normalizePlayerOrder } from './auctionRules.js';
 import { evaluateBotBid } from './botEngine.js';
 import { simulateBotLot, simulateRemainingAuction } from './botSimulation.js';
 
@@ -159,7 +159,12 @@ export function localAuctionReducer(state, action) {
         server: 'local',
         squadLimit,
         overseasLimit,
-        settings: { bidTimer, budget },
+        settings: {
+          bidTimer,
+          budget,
+          selectedSets: action.selectedSets || action.settings?.selectedSets || ['Tier 1', 'Tier 2', 'Tier 3'],
+          maxLots: action.settings?.maxLots || null,
+        },
         players,
         roomTeams,
         teams: roomTeams,

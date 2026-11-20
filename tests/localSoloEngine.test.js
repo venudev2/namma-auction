@@ -294,7 +294,7 @@ test('INIT_AUCTION: first bid is exactly the base price (lot opens at 0)', () =>
   assert.equal(state.currentAuction.currentBid, player.basePrice);
 });
 
-test('INIT_AUCTION: player order follows the shared set order, marquee first', () => {
+test('INIT_AUCTION: player order contains selected tier players properly shuffled', () => {
   const state = localAuctionReducer(null, {
     type: 'INIT_AUCTION',
     roomId: 'SOLO-SETS',
@@ -303,12 +303,9 @@ test('INIT_AUCTION: player order follows the shared set order, marquee first', (
     seed: 9,
   });
 
-  const setOrder = state.playerOrder.map((i) => IPL_PLAYERS[i].set);
-  const contiguousSets = setOrder.filter((s, i) => i === 0 || setOrder[i - 1] !== s);
-  const expectedSets = [...new Set(IPL_PLAYERS.filter((p) => p.set !== 'Legends').map((p) => p.set))];
-
-  assert.deepEqual(contiguousSets, expectedSets);
-  assert.equal(setOrder[0], 'Marquee Set 1');
+  const modernPlayers = IPL_PLAYERS.filter((p) => p.set !== 'Legends');
+  assert.equal(state.playerOrder.length, modernPlayers.length);
+  assert.equal(new Set(state.playerOrder).size, modernPlayers.length);
 });
 
 // ─── Test 5: Persistence with Schema Versioning & Safe Recovery ───

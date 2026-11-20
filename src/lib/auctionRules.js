@@ -6,16 +6,34 @@ import { countOverseas, isOverseasPlayer, r2, toFiniteNumber } from './auctionDi
  * place lets the regression tests exercise the real logic.
  */
 
+export const AVAILABLE_TIERS = ['Tier 1', 'Tier 2', 'Tier 3'];
+
 export const shuffleArray = (array) => {
   const a = [...array];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+  // Multi-pass modern Fisher-Yates with strong randomness
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
   }
   return a;
 };
 
-/** Build the shuffled lot order for an auction type, grouped by player tier. */
+/** Normalize playerOrder from RTDB (array or object) into a clean number array */
+export function normalizePlayerOrder(order) {
+  if (!order) return [];
+  if (Array.isArray(order)) return order.map(Number);
+  if (typeof order === 'object') {
+    return Object.keys(order)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((k) => Number(order[k]))
+      .filter((n) => !isNaN(n));
+  }
+  return [];
+}
+
+/** Build the shuffled lot order for an auction type, strictly filtered and shuffled among selected tiers. */
 export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, maxLots = null) {
   if (auctionType === 'legends') {
     const byRole = {};
@@ -31,52 +49,25 @@ export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, m
     return order;
   }
 
-  // Modern pool filtered by selectedSets / selectedTiers (if specified)
-  const isSetSelected = Array.isArray(selectedSets) && selectedSets.length > 0;
+  // Modern pool strictly filtered by selectedSets / selectedTiers
+  const activeTiers =
+    Array.isArray(selectedSets) && selectedSets.length > 0
+      ? selectedSets
+      : AVAILABLE_TIERS;
 
-  // Tier-based buckets
-  const tier1 = [];
-  const tier2 = [];
-  const tier3 = [];
-  const other = [];
-
+  // Collect ONLY players belonging to the active selected tiers
+  const pool = [];
   IPL_PLAYERS.forEach((p, i) => {
     if (p.set === 'Legends' || p.tier === 'Legends') return;
 
     const pTier = p.tier || p.set;
-    if (isSetSelected && !selectedSets.includes(pTier) && !selectedSets.includes(p.set)) {
-      return;
-    }
-
-    if (pTier === 'Tier 1' || p.set === 'Tier 1' || p.set === 'Marquee Set 1') {
-      tier1.push(i);
-    } else if (pTier === 'Tier 2' || p.set === 'Tier 2') {
-      tier2.push(i);
-    } else if (pTier === 'Tier 3' || p.set === 'Tier 3') {
-      tier3.push(i);
-    } else {
-      other.push(i);
+    if (activeTiers.includes(pTier) || activeTiers.includes(p.set)) {
+      pool.push(i);
     }
   });
 
-  const order = [];
-  // Tier-Based Auction Flow:
-  // 1. Start with Tier 1 (Marquee and superstar players), fully randomized
-  if (tier1.length > 0) {
-    order.push(...shuffleArray(tier1));
-  }
-  // 2. Move to Tier 2 (Established and experienced IPL players), fully randomized
-  if (tier2.length > 0) {
-    order.push(...shuffleArray(tier2));
-  }
-  // 3. Move to Tier 3 (Emerging, uncapped and young players), fully randomized
-  if (tier3.length > 0) {
-    order.push(...shuffleArray(tier3));
-  }
-  // 4. Any other remaining modern players
-  if (other.length > 0) {
-    order.push(...shuffleArray(other));
-  }
+  // Thoroughly shuffle all players among the selected tiers
+  const order = shuffleArray(pool);
 
   // Optional lot count cap (for Mini Auctions or quick games)
   if (typeof maxLots === 'number' && maxLots > 0) {

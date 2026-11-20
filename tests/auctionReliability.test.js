@@ -9,6 +9,7 @@ import {
   getStartDisposition,
   mapRoomPlayers,
   mergeRoomPlayer,
+  normalizePlayerOrder,
   resolveDisconnectAction,
   shouldArmDisconnectPause,
 } from '../src/lib/auctionRules.js';
@@ -66,15 +67,27 @@ test('selective player order only includes players from selected tiers', () => {
   });
 });
 
-test('tier-based auction flow starts with Tier 1 before Tier 2 and Tier 3', () => {
-  const order = generatePlayerOrder('mega');
+test('selected tier player order is thoroughly shuffled among the selected tiers without unselected tiers', () => {
+  const selectedSets = ['Tier 1', 'Tier 2'];
+  const order = generatePlayerOrder('mega', selectedSets);
   const t1Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 1' ? i : -1)).filter(i => i >= 0));
   const t2Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 2' ? i : -1)).filter(i => i >= 0));
-  
-  // All Tier 1 players should precede all Tier 2 players
+  const t3Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 3' ? i : -1)).filter(i => i >= 0));
+
+  // Zero Tier 3 players
+  const hasTier3 = order.some(idx => t3Indices.has(idx));
+  assert.equal(hasTier3, false, 'No Tier 3 player should appear when only Tier 1 & 2 are selected');
+
+  // Verify Tier 1 and Tier 2 are interleaved (shuffled among each other), not partitioned in two blocks
   const firstT2Index = order.findIndex(idx => t2Indices.has(idx));
   const lastT1Index = order.findLastIndex(idx => t1Indices.has(idx));
-  assert.ok(lastT1Index < firstT2Index, 'Tier 1 must finish before Tier 2 starts');
+  assert.ok(firstT2Index < lastT1Index, 'Tier 1 and Tier 2 players must be shuffled together, not blocked into rigid tiers');
+});
+
+test('normalizePlayerOrder converts arrays and Firebase RTDB objects into number arrays', () => {
+  assert.deepEqual(normalizePlayerOrder([1, 2, 3]), [1, 2, 3]);
+  assert.deepEqual(normalizePlayerOrder({ '0': 5, '1': 10, '2': 15 }), [5, 10, 15]);
+  assert.deepEqual(normalizePlayerOrder(null), []);
 });
 
 test('legends player order contains every legend player exactly once', () => {

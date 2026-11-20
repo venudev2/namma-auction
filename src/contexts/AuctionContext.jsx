@@ -63,6 +63,7 @@ import {
   mapRoomPlayers,
   mergeRoomPlayer,
   MIN_TEAMS_TO_START,
+  normalizePlayerOrder,
   resolveDisconnectAction,
   shouldArmDisconnectPause,
   shuffleArray,
@@ -513,14 +514,14 @@ export const AuctionProvider = ({ children }) => {
         throw new Error(`Add at least ${MIN_TEAMS_TO_START} teams to start the auction.`);
       }
 
-      let playerOrder =
-        Array.isArray(roomData.playerOrder) && roomData.playerOrder.length > 0
-          ? roomData.playerOrder
-          : generatePlayerOrder(
-              roomData.auctionType || 'mega',
-              roomData.settings?.selectedSets || roomData.selectedSets,
-              roomData.settings?.maxLots
-            );
+      let playerOrder = normalizePlayerOrder(roomData.playerOrder);
+      if (playerOrder.length === 0) {
+        playerOrder = generatePlayerOrder(
+          roomData.auctionType || 'mega',
+          roomData.settings?.selectedSets || roomData.selectedSets,
+          roomData.settings?.maxLots
+        );
+      }
       if (playerOrder.length === 0) {
         throw new Error('No players available for this auction.');
       }
@@ -529,10 +530,10 @@ export const AuctionProvider = ({ children }) => {
         const claim = await runTransactionRtdb(rtdbRoomRef, (currentRoom) => {
           if (!currentRoom) return;
           if (currentRoom.status === 'completed') return;
+          const currentOrder = normalizePlayerOrder(currentRoom.playerOrder);
           if (
             currentRoom.status === 'active' &&
-            Array.isArray(currentRoom.playerOrder) &&
-            currentRoom.playerOrder.length > 0
+            currentOrder.length > 0
           ) {
             return; // another tab won the start race
           }
@@ -552,14 +553,16 @@ export const AuctionProvider = ({ children }) => {
           if (!roomData || latest === 'running' || latest === 'completed' || latest === 'missing') {
             return;
           }
-          if (Array.isArray(roomData.playerOrder) && roomData.playerOrder.length > 0) {
-            playerOrder = roomData.playerOrder;
+          const restoredOrder = normalizePlayerOrder(roomData.playerOrder);
+          if (restoredOrder.length > 0) {
+            playerOrder = restoredOrder;
           }
         } else {
           const claimedRoom = claim.snapshot.val();
-          if (claimedRoom?.playerOrder?.length) playerOrder = claimedRoom.playerOrder;
+          const claimedOrder = normalizePlayerOrder(claimedRoom?.playerOrder);
+          if (claimedOrder.length > 0) playerOrder = claimedOrder;
         }
-      } else if (!Array.isArray(roomData.playerOrder) || roomData.playerOrder.length === 0) {
+      } else if (normalizePlayerOrder(roomData.playerOrder).length === 0) {
         await updateRtdb(rtdbRoomRef, { playerOrder });
       }
 
@@ -729,10 +732,18 @@ export const AuctionProvider = ({ children }) => {
       const waitTime = isSold ? 5000 : 2000;
 
       // Player order from the single room snapshot already fetched above
-      let playerOrder = roomData.playerOrder;
-      if (!playerOrder) {
+      let rawOrder = roomData.playerOrder;
+      if (!rawOrder) {
         const orderSnap = await get(ref(rtdb, `auctions/${roomId}/playerOrder`));
-        if (orderSnap.exists()) playerOrder = orderSnap.val();
+        if (orderSnap.exists()) rawOrder = orderSnap.val();
+      }
+      let order = normalizePlayerOrder(rawOrder);
+      if (order.length === 0) {
+        order = generatePlayerOrder(
+          roomData.auctionType || 'mega',
+          roomData.settings?.selectedSets || roomData.selectedSets,
+          roomData.settings?.maxLots
+        );
       }
 
       // ── Bug Fix 2: Always release endingPlayerRef via finally inside the timeout callback ──
@@ -744,7 +755,6 @@ export const AuctionProvider = ({ children }) => {
 
           const settings = roomData.settings;
           const currentPlayerId = targetPlayerId;
-          const order = playerOrder || Array.from({ length: IPL_PLAYERS.length }, (_, i) => i);
           const currentPlayerIndexInOrder = order.findIndex(idx => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === currentPlayerId);
           const nextIndexInOrder = currentPlayerIndexInOrder !== -1 ? order[currentPlayerIndexInOrder + 1] : order[0];
 
@@ -885,7 +895,19 @@ export const AuctionProvider = ({ children }) => {
       if (live.status === 'sold' || live.status === 'unsold') {
         const roomSnap = await get(roomRef);
         const room = roomSnap.exists() ? roomSnap.val() : {};
-        const order = room.playerOrder || Array.from({ length: IPL_PLAYERS.length }, (_, i) => i);
+        let rawOrder = room.playerOrder;
+        if (!rawOrder) {
+          const orderSnap = await get(ref(rtdbInstance, `auctions/${roomId}/playerOrder`));
+          if (orderSnap.exists()) rawOrder = orderSnap.val();
+        }
+        let order = normalizePlayerOrder(rawOrder);
+        if (order.length === 0) {
+          order = generatePlayerOrder(
+            room.auctionType || 'mega',
+            room.settings?.selectedSets || room.selectedSets,
+            room.settings?.maxLots
+          );
+        }
         const currentPlayerId = live.playerId;
         const curIdx = order.findIndex((idx) => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === currentPlayerId);
         const nextIdx = curIdx !== -1 ? order[curIdx + 1] : order[0];
@@ -1055,7 +1077,19 @@ export const AuctionProvider = ({ children }) => {
       }
 
       // Quick advance after 1.5s on sold or 1s on unsold
-      const order = room.playerOrder || Array.from({ length: IPL_PLAYERS.length }, (_, i) => i);
+      let rawAdvanceOrder = room.playerOrder;
+      if (!rawAdvanceOrder) {
+        const orderSnap = await get(ref(rtdbInstance, `auctions/${roomId}/playerOrder`));
+        if (orderSnap.exists()) rawAdvanceOrder = orderSnap.val();
+      }
+      let order = normalizePlayerOrder(rawAdvanceOrder);
+      if (order.length === 0) {
+        order = generatePlayerOrder(
+          room.auctionType || 'mega',
+          room.settings?.selectedSets || room.selectedSets,
+          room.settings?.maxLots
+        );
+      }
       const curIdx = order.findIndex((idx) => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === player.id);
       const nextIdx = curIdx !== -1 ? order[curIdx + 1] : order[0];
 
@@ -1206,7 +1240,19 @@ export const AuctionProvider = ({ children }) => {
         return;
       }
 
-      const order = room.playerOrder || Array.from({ length: IPL_PLAYERS.length }, (_, i) => i);
+      let rawOrder = room.playerOrder;
+      if (!rawOrder) {
+        const orderSnap = await get(ref(rtdb, `auctions/${roomId}/playerOrder`));
+        if (orderSnap.exists()) rawOrder = orderSnap.val();
+      }
+      let order = normalizePlayerOrder(rawOrder);
+      if (order.length === 0) {
+        order = generatePlayerOrder(
+          room.auctionType || 'mega',
+          room.settings?.selectedSets || room.selectedSets,
+          room.settings?.maxLots
+        );
+      }
       const currentPlayerId = live?.playerId;
       const currentIdx = order.findIndex((idx) => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === currentPlayerId);
 
@@ -2015,10 +2061,12 @@ export const AuctionProvider = ({ children }) => {
         if (!data.playerOrder) {
           get(ref(roomRtdb, `auctions/${auctionId}/playerOrder`)).then(oSnap => {
             if (!alive) return;
-            if (oSnap.exists()) data.playerOrder = oSnap.val();
+            if (oSnap.exists()) data.playerOrder = normalizePlayerOrder(oSnap.val());
             currentRoomData = data;
             checkAndSet();
           }).catch(() => {});
+        } else {
+          data.playerOrder = normalizePlayerOrder(data.playerOrder);
         }
         currentRoomData = data;
         checkAndSet();
