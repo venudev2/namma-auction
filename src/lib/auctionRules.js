@@ -33,6 +33,135 @@ export function normalizePlayerOrder(order) {
   return [];
 }
 
+/**
+ * Intelligently samples a balanced cricket roster across roles (WK, Batsmen, All-Rounders, Bowlers)
+ * from the available player pool so capped auctions (20, 35, 50, 90, or custom) are playable and fun.
+ */
+function sampleBalancedRoles(pool, targetCount) {
+  if (!targetCount || targetCount >= pool.length) return [...pool];
+
+  const byRole = {
+    'Wicket-Keeper': [],
+    'Batsman': [],
+    'All-Rounder': [],
+    'Bowler': [],
+  };
+
+  pool.forEach((idx) => {
+    const role = IPL_PLAYERS[idx]?.role || 'All-Rounder';
+    if (byRole[role]) byRole[role].push(idx);
+    else byRole['All-Rounder'].push(idx);
+  });
+
+  Object.keys(byRole).forEach((r) => {
+    byRole[r] = shuffleArray(byRole[r]);
+  });
+
+  const wkTarget = Math.max(1, Math.min(byRole['Wicket-Keeper'].length, Math.round(targetCount * 0.12)));
+  const batTarget = Math.max(2, Math.min(byRole['Batsman'].length, Math.round(targetCount * 0.28)));
+  const arTarget = Math.max(2, Math.min(byRole['All-Rounder'].length, Math.round(targetCount * 0.24)));
+  const bowlTarget = Math.max(2, Math.min(byRole['Bowler'].length, Math.round(targetCount * 0.36)));
+
+  const selected = [
+    ...byRole['Wicket-Keeper'].slice(0, wkTarget),
+    ...byRole['Batsman'].slice(0, batTarget),
+    ...byRole['All-Rounder'].slice(0, arTarget),
+    ...byRole['Bowler'].slice(0, bowlTarget),
+  ];
+
+  const selectedSet = new Set(selected);
+  const remainingPool = shuffleArray(pool.filter((idx) => !selectedSet.has(idx)));
+
+  while (selected.length < targetCount && remainingPool.length > 0) {
+    selected.push(remainingPool.pop());
+  }
+
+  return selected.slice(0, targetCount);
+}
+
+/**
+ * Arranges the selected auction lots into an exciting, thrilling sequence:
+ * 1. Blockbuster Opener (Lot 1): A marquee superstar kicks off the bidding war.
+ * 2. Role Interleaving: Alternates between roles so players don't face repetitive runs.
+ * 3. Late Climax Stars: Injects high-stakes superstar anchors near the final 15% mark
+ *    to preserve high drama and strategic budget decisions until the finish!
+ */
+function arrangeExcitingAuction(selectedIndices) {
+  if (selectedIndices.length <= 3) return shuffleArray(selectedIndices);
+
+  const players = selectedIndices.map((i) => ({ index: i, player: IPL_PLAYERS[i] }));
+  const marquees = [];
+  const regulars = [];
+
+  players.forEach((p) => {
+    if ((p.player?.rating >= 82 || p.player?.tier === 'Tier 1') && (p.player?.rating || 0) >= 78) {
+      marquees.push(p);
+    } else {
+      regulars.push(p);
+    }
+  });
+
+  const shuffledMarquees = shuffleArray(marquees);
+  const shuffledRegulars = shuffleArray(regulars);
+
+  if (shuffledMarquees.length === 0) return shuffleArray(selectedIndices);
+
+  // Pick 1 blockbuster opener for Lot 1
+  const opener = shuffledMarquees.pop();
+
+  // Pick 1 or 2 late climax superstars (for the final ~15% of the auction)
+  const lateSuperstars = [];
+  if (shuffledMarquees.length > 2 && selectedIndices.length >= 15) {
+    lateSuperstars.push(shuffledMarquees.pop());
+    if (shuffledMarquees.length > 5 && selectedIndices.length >= 35) {
+      lateSuperstars.push(shuffledMarquees.pop());
+    }
+  }
+
+  const roleQueues = {
+    'Batsman': [],
+    'Bowler': [],
+    'All-Rounder': [],
+    'Wicket-Keeper': [],
+  };
+
+  const remaining = shuffleArray([...shuffledMarquees, ...shuffledRegulars]);
+  remaining.forEach((p) => {
+    const r = p.player?.role || 'All-Rounder';
+    if (roleQueues[r]) roleQueues[r].push(p);
+    else roleQueues['All-Rounder'].push(p);
+  });
+
+  const interleaved = [];
+  const roleKeys = shuffleArray(['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper']);
+  let hasMore = true;
+  while (hasMore) {
+    hasMore = false;
+    for (const r of roleKeys) {
+      if (roleQueues[r].length > 0) {
+        interleaved.push(roleQueues[r].pop());
+        hasMore = true;
+      }
+    }
+  }
+
+  const finalOrder = [opener];
+  const climaxInsertIndex = Math.max(1, Math.floor(selectedIndices.length * 0.82));
+
+  interleaved.forEach((p) => {
+    if (finalOrder.length === climaxInsertIndex && lateSuperstars.length > 0) {
+      finalOrder.push(lateSuperstars.pop());
+    }
+    finalOrder.push(p);
+  });
+
+  while (lateSuperstars.length > 0) {
+    finalOrder.splice(Math.max(1, finalOrder.length - 2), 0, lateSuperstars.pop());
+  }
+
+  return finalOrder.map((p) => p.index);
+}
+
 /** Build the shuffled lot order for an auction type, strictly filtered and shuffled among selected tiers. */
 export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, maxLots = null) {
   if (auctionType === 'legends') {
@@ -66,15 +195,19 @@ export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, m
     }
   });
 
-  // Thoroughly shuffle all players among the selected tiers
-  const order = shuffleArray(pool);
+  if (pool.length === 0) return [];
 
-  // Optional lot count cap (for Mini Auctions or quick games)
-  if (typeof maxLots === 'number' && maxLots > 0) {
-    return order.slice(0, maxLots);
-  }
+  // Parse and validate maxLots (supports 20, 35, 50, 90, or custom count)
+  const parsedMax =
+    typeof maxLots === 'number' && maxLots > 0
+      ? Math.min(Math.max(5, maxLots), pool.length)
+      : null;
 
-  return order;
+  // Intelligently sample balanced roles if capped, or take entire pool
+  const chosenPool = parsedMax ? sampleBalancedRoles(pool, parsedMax) : pool;
+
+  // Arrange into an exciting, thrilling auction sequence with marquee opener & late climax
+  return arrangeExcitingAuction(chosenPool);
 }
 
 export const normalizeSquad = (squad) => mapRoomPlayers(squad, (entry) => entry);

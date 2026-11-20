@@ -85,6 +85,10 @@ const Lobby = () => {
   });
 
   const isAdmin = currentAuction?.hostId === user?.uid;
+  const currentMaxLots = currentAuction?.settings?.maxLots ?? null;
+  const isCustomLot = typeof currentMaxLots === 'number' && ![20, 35, 50, 90].includes(currentMaxLots);
+  const [showCustomInput, setShowCustomInput] = useState(isCustomLot);
+  const [customLotVal, setCustomLotVal] = useState(isCustomLot ? String(currentMaxLots) : '60');
 
   const handleSelectSetPreset = async (preset) => {
     if (!isAdmin) return;
@@ -805,29 +809,69 @@ const Lobby = () => {
                     <span className="text-[8.5px] font-mono text-slate-400">
                       Mini Auction Lot Cap:
                     </span>
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {[
                         { val: null, label: 'All Lots' },
                         { val: 20, label: '20 Lots' },
                         { val: 35, label: '35 Lots' },
-                        { val: 50, label: '50 Lots' }
-                      ].map((cap) => (
-                        <button
-                          key={String(cap.val)}
-                          type="button"
-                          onClick={() => handleSetMaxLots(cap.val)}
-                          className={`px-2 py-0.5 rounded text-[8px] font-mono transition-all cursor-pointer ${
-                            currentAuction?.settings?.maxLots === cap.val ||
-                            (!currentAuction?.settings?.maxLots && cap.val === null)
-                              ? 'bg-white text-black font-bold'
-                              : 'bg-white/5 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {cap.label}
-                        </button>
-                      ))}
+                        { val: 50, label: '50 Lots' },
+                        { val: 90, label: '90 Lots' },
+                        { val: 'custom', label: 'Custom' },
+                      ].map((cap) => {
+                        const isActive =
+                          cap.val === 'custom'
+                            ? showCustomInput || isCustomLot
+                            : currentAuction?.settings?.maxLots === cap.val && !showCustomInput && !isCustomLot ||
+                              (!currentAuction?.settings?.maxLots && cap.val === null && !showCustomInput && !isCustomLot);
+                        return (
+                          <button
+                            key={String(cap.val)}
+                            type="button"
+                            onClick={() => {
+                              if (cap.val === 'custom') {
+                                setShowCustomInput(true);
+                                const num = parseInt(customLotVal, 10) || 60;
+                                handleSetMaxLots(num);
+                              } else {
+                                setShowCustomInput(false);
+                                handleSetMaxLots(cap.val);
+                              }
+                            }}
+                            className={`px-2 py-0.5 rounded text-[8px] font-mono transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-amber-400 text-black font-bold shadow-sm'
+                                : 'bg-white/5 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {cap.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
+
+                  {(showCustomInput || isCustomLot) && (
+                    <div className="flex items-center gap-2 pt-1.5 justify-end">
+                      <span className="text-[8px] font-mono text-amber-300">Custom Lots:</span>
+                      <input
+                        type="number"
+                        min={5}
+                        max={250}
+                        value={customLotVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomLotVal(val);
+                          const num = parseInt(val, 10);
+                          if (!isNaN(num) && num > 0) {
+                            handleSetMaxLots(Math.max(5, Math.min(250, num)));
+                          }
+                        }}
+                        className="w-16 px-2 py-0.5 rounded bg-black/60 border border-amber-400/50 text-amber-300 text-[8.5px] font-mono text-center focus:outline-none focus:border-amber-400"
+                        placeholder="e.g. 60"
+                      />
+                      <span className="text-[7.5px] text-slate-500 font-mono">(5–250 lots)</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-[10px] text-slate-300 font-mono space-y-1">
@@ -837,8 +881,8 @@ const Lobby = () => {
                       : `Selected Tiers: ${currentAuction.settings.selectedSets.join(' • ')}`}
                   </div>
                   {currentAuction?.settings?.maxLots && (
-                    <div className="text-[9px] text-amber-400">
-                      Capped at {currentAuction.settings.maxLots} lots
+                    <div className="text-[9px] text-amber-400 font-semibold">
+                      Capped at {currentAuction.settings.maxLots} lots • Curated & Balanced Roles
                     </div>
                   )}
                 </div>

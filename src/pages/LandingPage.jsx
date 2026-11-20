@@ -162,6 +162,8 @@ const LandingPage = () => {
   const [auctionType, setAuctionType] = useState("mega"); 
   const [selectedTiers, setSelectedTiers] = useState(["Tier 1", "Tier 2", "Tier 3"]);
   const [maxLots, setMaxLots] = useState(null);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customLotVal, setCustomLotVal] = useState("60");
   const [playSolo, setPlaySolo] = useState(false);
 
   const handleTierPreset = (preset) => {
@@ -1317,28 +1319,68 @@ const LandingPage = () => {
                       <span className="text-[9px] font-mono text-slate-400">
                         Mini Auction Lot Cap:
                       </span>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {[
                           { val: null, label: "All Lots" },
                           { val: 20, label: "20 Lots" },
                           { val: 35, label: "35 Lots" },
                           { val: 50, label: "50 Lots" },
-                        ].map((cap) => (
-                          <button
-                            key={String(cap.val)}
-                            type="button"
-                            onClick={() => setMaxLots(cap.val)}
-                            className={`px-2 py-0.5 rounded text-[8.5px] font-mono transition-all cursor-pointer ${
-                              maxLots === cap.val
-                                ? "bg-white text-black font-bold"
-                                : "bg-white/5 text-slate-400 hover:text-white"
-                            }`}
-                          >
-                            {cap.label}
-                          </button>
-                        ))}
+                          { val: 90, label: "90 Lots" },
+                          { val: "custom", label: "Custom" },
+                        ].map((cap) => {
+                          const isActive =
+                            cap.val === "custom"
+                              ? showCustomInput
+                              : maxLots === cap.val && !showCustomInput;
+                          return (
+                            <button
+                              key={String(cap.val)}
+                              type="button"
+                              onClick={() => {
+                                if (cap.val === "custom") {
+                                  setShowCustomInput(true);
+                                  const num = parseInt(customLotVal, 10) || 60;
+                                  setMaxLots(num);
+                                } else {
+                                  setShowCustomInput(false);
+                                  setMaxLots(cap.val);
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded text-[8.5px] font-mono transition-all cursor-pointer ${
+                                isActive
+                                  ? "bg-amber-400 text-black font-bold shadow-sm"
+                                  : "bg-white/5 text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              {cap.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
+
+                    {showCustomInput && (
+                      <div className="flex items-center gap-2 pt-1.5 justify-end">
+                        <span className="text-[8.5px] font-mono text-amber-300">Custom Lots:</span>
+                        <input
+                          type="number"
+                          min={5}
+                          max={250}
+                          value={customLotVal}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomLotVal(val);
+                            const num = parseInt(val, 10);
+                            if (!isNaN(num) && num > 0) {
+                              setMaxLots(Math.max(5, Math.min(250, num)));
+                            }
+                          }}
+                          className="w-16 px-2 py-0.5 rounded bg-black/60 border border-amber-400/50 text-amber-300 text-[9px] font-mono text-center focus:outline-none focus:border-amber-400"
+                          placeholder="e.g. 60"
+                        />
+                        <span className="text-[8px] text-slate-500 font-mono">(5–250 lots)</span>
+                      </div>
+                    )}
                   </div>
                 )}
 

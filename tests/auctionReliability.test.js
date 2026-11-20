@@ -84,6 +84,45 @@ test('selected tier player order is thoroughly shuffled among the selected tiers
   assert.ok(firstT2Index < lastT1Index, 'Tier 1 and Tier 2 players must be shuffled together, not blocked into rigid tiers');
 });
 
+test('virat kohli rating is set to 89', () => {
+  const vk = IPL_PLAYERS.find((p) => p.name === 'Virat Kohli');
+  assert.ok(vk, 'Virat Kohli must exist');
+  assert.equal(vk.rating, 89);
+});
+
+test('90 lots option and custom lots option generate balanced, exciting auction lots', () => {
+  const selectedSets = ['Tier 1', 'Tier 2'];
+  
+  // Test 90 lots
+  const order90 = generatePlayerOrder('mega', selectedSets, 90);
+  assert.equal(order90.length, 90);
+  assert.equal(new Set(order90).size, 90);
+
+  // Verify role balance in 90 lots
+  const roles = { 'Wicket-Keeper': 0, 'Batsman': 0, 'All-Rounder': 0, 'Bowler': 0 };
+  order90.forEach((idx) => {
+    roles[IPL_PLAYERS[idx].role] = (roles[IPL_PLAYERS[idx].role] || 0) + 1;
+  });
+  assert.ok(roles['Wicket-Keeper'] >= 5, 'Must have at least 5 WKs');
+  assert.ok(roles['Batsman'] >= 15, 'Must have at least 15 Batsmen');
+  assert.ok(roles['All-Rounder'] >= 15, 'Must have at least 15 All-Rounders');
+  assert.ok(roles['Bowler'] >= 20, 'Must have at least 20 Bowlers');
+
+  // Verify Lot 1 is a marquee star
+  const opener = IPL_PLAYERS[order90[0]];
+  assert.ok(opener.rating >= 78 || opener.tier === 'Tier 1', 'Lot 1 must be a marquee superstar');
+
+  // Test custom lots: 60 lots
+  const order60 = generatePlayerOrder('mega', selectedSets, 60);
+  assert.equal(order60.length, 60);
+  assert.equal(new Set(order60).size, 60);
+
+  // Test custom lots: 25 lots
+  const order25 = generatePlayerOrder('mega', selectedSets, 25);
+  assert.equal(order25.length, 25);
+  assert.equal(new Set(order25).size, 25);
+});
+
 test('normalizePlayerOrder converts arrays and Firebase RTDB objects into number arrays', () => {
   assert.deepEqual(normalizePlayerOrder([1, 2, 3]), [1, 2, 3]);
   assert.deepEqual(normalizePlayerOrder({ '0': 5, '1': 10, '2': 15 }), [5, 10, 15]);

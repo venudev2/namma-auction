@@ -775,7 +775,7 @@ export const IPL_PLAYERS = [
       "sr": 134.8,
       "hs": "113*"
     },
-    "rating": 90,
+    "rating": 89,
     "tier": "Tier 1"
   },
   {
