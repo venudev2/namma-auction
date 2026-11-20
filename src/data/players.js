@@ -1888,7 +1888,7 @@ export const IPL_PLAYERS = [
     "country": "IND",
     "basePrice": 1,
     "set": "Tier 2",
-    "image": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Devdutt_Paddikal_%28cropped%29.jpg",
+    "image": "/players/devdutt_padikkal.jpg",
     "stats": {
       "matches": 90,
       "runs": 2270,
