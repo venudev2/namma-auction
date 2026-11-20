@@ -1576,6 +1576,17 @@ const AuctionRoom = () => {
                         {currentPlayer.name}
                      </h2>
                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {(currentPlayer.tier || currentPlayer.set) && (currentPlayer.tier !== 'Legends' && currentPlayer.set !== 'Legends') && (
+                           <span className={`border text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                              (currentPlayer.tier || currentPlayer.set) === 'Tier 1'
+                                 ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                 : (currentPlayer.tier || currentPlayer.set) === 'Tier 2'
+                                 ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                                 : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                           }`}>
+                              {currentPlayer.tier || currentPlayer.set}
+                           </span>
+                        )}
                         <span className="bg-white/10 backdrop-blur-md border border-white/15 text-slate-200 text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider">
                            {currentPlayer.role}
                         </span>
@@ -1592,6 +1603,17 @@ const AuctionRoom = () => {
                   {/* Desktop / Tablet name and badges (hidden on mobile) */}
                   <div className="hidden sm:block">
                      <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mb-2 xl:mb-4">
+                        {(currentPlayer.tier || currentPlayer.set) && (currentPlayer.tier !== 'Legends' && currentPlayer.set !== 'Legends') && (
+                           <span className={`border text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-widest ${
+                              (currentPlayer.tier || currentPlayer.set) === 'Tier 1'
+                                 ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
+                                 : (currentPlayer.tier || currentPlayer.set) === 'Tier 2'
+                                 ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_8px_rgba(59,130,246,0.2)]'
+                                 : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                           }`}>
+                              {currentPlayer.tier || currentPlayer.set}
+                           </span>
+                        )}
                         <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-widest">{currentPlayer.role}</span>
                         <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-widest">{currentPlayer.type}</span>
                         <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-wider">

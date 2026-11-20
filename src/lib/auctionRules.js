@@ -38,7 +38,7 @@ export function normalizePlayerOrder(order) {
  * from the available player pool so capped auctions (20, 35, 50, 90, or custom) are playable and fun.
  */
 function sampleBalancedRoles(pool, targetCount) {
-  if (!targetCount || targetCount >= pool.length) return [...pool];
+  if (!targetCount || targetCount >= pool.length) return shuffleArray(pool);
 
   const byRole = {
     'Wicket-Keeper': [],
@@ -76,25 +76,28 @@ function sampleBalancedRoles(pool, targetCount) {
     selected.push(remainingPool.pop());
   }
 
-  return selected.slice(0, targetCount);
+  return shuffleArray(selected.slice(0, targetCount));
 }
 
 /**
- * Arranges the selected auction lots into an exciting, thrilling sequence:
- * 1. Blockbuster Opener (Lot 1): A marquee superstar kicks off the bidding war.
+ * Arranges auction lots within a single tier into an exciting, thrilling sequence:
+ * 1. Blockbuster Opener (Lot 1 of tier): A top superstar kicks off the bidding.
  * 2. Role Interleaving: Alternates between roles so players don't face repetitive runs.
  * 3. Late Climax Stars: Injects high-stakes superstar anchors near the final 15% mark
- *    to preserve high drama and strategic budget decisions until the finish!
+ *    of the tier to preserve drama and strategic budget decisions.
  */
 function arrangeExcitingAuction(selectedIndices) {
   if (selectedIndices.length <= 3) return shuffleArray(selectedIndices);
 
   const players = selectedIndices.map((i) => ({ index: i, player: IPL_PLAYERS[i] }));
+  const maxRating = Math.max(...players.map((p) => p.player?.rating || 70));
+  const marqueeThreshold = Math.max(75, maxRating - 3);
+
   const marquees = [];
   const regulars = [];
 
   players.forEach((p) => {
-    if ((p.player?.rating >= 82 || p.player?.tier === 'Tier 1') && (p.player?.rating || 0) >= 78) {
+    if ((p.player?.rating || 0) >= marqueeThreshold) {
       marquees.push(p);
     } else {
       regulars.push(p);
@@ -106,10 +109,10 @@ function arrangeExcitingAuction(selectedIndices) {
 
   if (shuffledMarquees.length === 0) return shuffleArray(selectedIndices);
 
-  // Pick 1 blockbuster opener for Lot 1
+  // Pick 1 blockbuster opener for Lot 1 of this tier
   const opener = shuffledMarquees.pop();
 
-  // Pick 1 or 2 late climax superstars (for the final ~15% of the auction)
+  // Pick 1 or 2 late climax superstars (for the final ~15% of the tier)
   const lateSuperstars = [];
   if (shuffledMarquees.length > 2 && selectedIndices.length >= 15) {
     lateSuperstars.push(shuffledMarquees.pop());
@@ -162,7 +165,7 @@ function arrangeExcitingAuction(selectedIndices) {
   return finalOrder.map((p) => p.index);
 }
 
-/** Build the shuffled lot order for an auction type, strictly filtered and shuffled among selected tiers. */
+/** Build the sequential lot order for an auction: selected tiers auction sequentially (Tier 1 ➔ Tier 2 ➔ Tier 3), with complete internal shuffling and role variety per tier, zero mixing across tiers. */
 export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, maxLots = null) {
   if (auctionType === 'legends') {
     const byRole = {};
@@ -175,39 +178,95 @@ export function generatePlayerOrder(auctionType = 'mega', selectedSets = null, m
     ['Batsman', 'All-Rounder', 'Wicket-Keeper', 'Bowler'].forEach((role) => {
       if (byRole[role]) order.push(...shuffleArray(byRole[role]));
     });
+    if (typeof maxLots === 'number' && maxLots > 0) {
+      return order.slice(0, Math.min(maxLots, order.length));
+    }
     return order;
   }
 
   // Modern pool strictly filtered by selectedSets / selectedTiers
-  const activeTiers =
+  const userSelected =
     Array.isArray(selectedSets) && selectedSets.length > 0
       ? selectedSets
       : AVAILABLE_TIERS;
 
-  // Collect ONLY players belonging to the active selected tiers
-  const pool = [];
+  // Canonical sequential tier flow: Tier 1 -> Tier 2 -> Tier 3
+  const activeTiers = [
+    ...AVAILABLE_TIERS.filter((t) => userSelected.includes(t)),
+    ...userSelected.filter((t) => !AVAILABLE_TIERS.includes(t)),
+  ];
+
+  // Bucket players strictly by tier
+  const tierBuckets = {};
+  activeTiers.forEach((t) => {
+    tierBuckets[t] = [];
+  });
+
   IPL_PLAYERS.forEach((p, i) => {
     if (p.set === 'Legends' || p.tier === 'Legends') return;
-
     const pTier = p.tier || p.set;
-    if (activeTiers.includes(pTier) || activeTiers.includes(p.set)) {
-      pool.push(i);
+    if (tierBuckets[pTier]) {
+      tierBuckets[pTier].push(i);
     }
   });
 
-  if (pool.length === 0) return [];
+  const totalAvailable = activeTiers.reduce((acc, t) => acc + (tierBuckets[t]?.length || 0), 0);
+  if (totalAvailable === 0) return [];
 
   // Parse and validate maxLots (supports 20, 35, 50, 90, or custom count)
   const parsedMax =
     typeof maxLots === 'number' && maxLots > 0
-      ? Math.min(Math.max(5, maxLots), pool.length)
+      ? Math.min(Math.max(5, maxLots), totalAvailable)
       : null;
 
-  // Intelligently sample balanced roles if capped, or take entire pool
-  const chosenPool = parsedMax ? sampleBalancedRoles(pool, parsedMax) : pool;
+  let tierAllocations = {};
+  if (parsedMax && parsedMax < totalAvailable) {
+    let allocatedSoFar = 0;
+    activeTiers.forEach((tierName, idx) => {
+      const tierCount = tierBuckets[tierName]?.length || 0;
+      if (idx === activeTiers.length - 1) {
+        tierAllocations[tierName] = parsedMax - allocatedSoFar;
+      } else {
+        const share = Math.round((tierCount / totalAvailable) * parsedMax);
+        const alloc = Math.min(tierCount, Math.max(1, share));
+        tierAllocations[tierName] = alloc;
+        allocatedSoFar += alloc;
+      }
+    });
+    let currentTotal = Object.values(tierAllocations).reduce((a, b) => a + b, 0);
+    while (currentTotal > parsedMax) {
+      const maxTier = activeTiers.reduce((best, t) => (tierAllocations[t] > tierAllocations[best] ? t : best), activeTiers[0]);
+      tierAllocations[maxTier]--;
+      currentTotal--;
+    }
+    while (currentTotal < parsedMax) {
+      const availTier = activeTiers.find((t) => tierAllocations[t] < tierBuckets[t].length);
+      if (availTier) {
+        tierAllocations[availTier]++;
+        currentTotal++;
+      } else {
+        break;
+      }
+    }
+  } else {
+    activeTiers.forEach((t) => {
+      tierAllocations[t] = tierBuckets[t]?.length || 0;
+    });
+  }
 
-  // Arrange into an exciting, thrilling auction sequence with marquee opener & late climax
-  return arrangeExcitingAuction(chosenPool);
+  // Sequentially assemble each tier in strict order (Tier 1 -> Tier 2 -> Tier 3)
+  // Each tier is internally balanced and shuffled so no two auctions are identical, with zero mixing across tiers
+  const order = [];
+  activeTiers.forEach((tierName) => {
+    const playersInTier = tierBuckets[tierName] || [];
+    const alloc = tierAllocations[tierName] || 0;
+    if (alloc > 0 && playersInTier.length > 0) {
+      const sampled = sampleBalancedRoles(playersInTier, alloc);
+      order.push(...arrangeExcitingAuction(sampled));
+    }
+  });
+
+  return order;
 }
 
 export const normalizeSquad = (squad) => mapRoomPlayers(squad, (entry) => entry);

@@ -67,21 +67,31 @@ test('selective player order only includes players from selected tiers', () => {
   });
 });
 
-test('selected tier player order is thoroughly shuffled among the selected tiers without unselected tiers', () => {
+test('selected tier player order is sequentially ordered by tier (Tier 1 first, then Tier 2), internally shuffled per tier, with zero mixing across tiers', () => {
   const selectedSets = ['Tier 1', 'Tier 2'];
   const order = generatePlayerOrder('mega', selectedSets);
-  const t1Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 1' ? i : -1)).filter(i => i >= 0));
-  const t2Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 2' ? i : -1)).filter(i => i >= 0));
-  const t3Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 3' ? i : -1)).filter(i => i >= 0));
+  const t1Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 1' || p.tier === 'Tier 1' ? i : -1)).filter(i => i >= 0));
+  const t2Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 2' || p.tier === 'Tier 2' ? i : -1)).filter(i => i >= 0));
+  const t3Indices = new Set(IPL_PLAYERS.map((p, i) => (p.set === 'Tier 3' || p.tier === 'Tier 3' ? i : -1)).filter(i => i >= 0));
 
   // Zero Tier 3 players
   const hasTier3 = order.some(idx => t3Indices.has(idx));
   assert.equal(hasTier3, false, 'No Tier 3 player should appear when only Tier 1 & 2 are selected');
 
-  // Verify Tier 1 and Tier 2 are interleaved (shuffled among each other), not partitioned in two blocks
+  // Verify Tier 1 players all display first, followed by Tier 2, never mixing
   const firstT2Index = order.findIndex(idx => t2Indices.has(idx));
   const lastT1Index = order.findLastIndex(idx => t1Indices.has(idx));
-  assert.ok(firstT2Index < lastT1Index, 'Tier 1 and Tier 2 players must be shuffled together, not blocked into rigid tiers');
+  assert.ok(lastT1Index < firstT2Index, 'All Tier 1 players must display before any Tier 2 player begins');
+
+  // Verify each tier is internally shuffled across multiple auction generations
+  const order2 = generatePlayerOrder('mega', selectedSets);
+  const t1Order1 = order.filter(idx => t1Indices.has(idx));
+  const t1Order2 = order2.filter(idx => t1Indices.has(idx));
+  assert.notDeepEqual(t1Order1, t1Order2, 'Tier 1 players must be internally shuffled across auctions');
+
+  const t2Order1 = order.filter(idx => t2Indices.has(idx));
+  const t2Order2 = order2.filter(idx => t2Indices.has(idx));
+  assert.notDeepEqual(t2Order1, t2Order2, 'Tier 2 players must be internally shuffled across auctions');
 });
 
 test('virat kohli rating is set to 89', () => {
