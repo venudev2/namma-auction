@@ -31,6 +31,7 @@ import PageLoader from '../components/PageLoader';
 import useRoomServer from '../hooks/useRoomServer';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { isLocalRoom, loadLocalSoloRoom } from '../lib/localAuctionEngine';
+import { getPlayerDynamicRating } from '../lib/auctionRules';
 import {
   computeTeamSpent,
   countOverseas,
@@ -574,7 +575,8 @@ const AuctionSummary = () => {
                   const pid = typeof s === 'string' ? s : s.id;
                   const bid = typeof s === 'string' ? null : (s.bid ?? null);
                   const playerInfo = IPL_PLAYERS.find(p => p.id === pid);
-                  return { ...(playerInfo || {}), id: pid, name: playerInfo?.name || pid, bid };
+                  const dynamicRating = getPlayerDynamicRating(playerInfo, id, activeAuction?.settings?.ratingDeltas) || playerInfo?.rating;
+                  return { ...(playerInfo || {}), id: pid, name: playerInfo?.name || pid, bid, rating: dynamicRating };
                 }).filter(p => p && p.id);
 
                 if (squad.length === 0) return null;
@@ -705,7 +707,13 @@ const AuctionSummary = () => {
                                            <div className="flex items-center gap-1.5">
                                              <span className="text-[8px] font-pixel text-slate-400 uppercase tracking-wider">{p.type}</span>
                                              {isOverseasPlayer(p) && <Wifi size={10} className="text-purple-400 rotate-90 shrink-0" />}
-                                           </div>
+                                           
+                                              {p.rating > 0 && (
+                                                <span className="text-[7.5px] font-pixel text-amber-300 bg-amber-400/10 border border-amber-400/20 px-1 py-0.2 rounded shrink-0">
+                                                  ★ {p.rating}
+                                                </span>
+                                              )}
+                                            </div>
                                          </div>
                                        </div>
                                        <div className="text-right shrink-0">
@@ -834,7 +842,13 @@ const AuctionSummary = () => {
                                     <div className="flex items-center gap-1.5">
                                       <span className="text-[8px] font-pixel uppercase tracking-wider text-slate-400">{p.type || p.role}</span>
                                       {isOverseasPlayer(p) && <span className="text-[7px] font-pixel uppercase text-purple-400">✈ OS</span>}
-                                    </div>
+                                    
+                                        {p.rating > 0 && (
+                                          <span className="text-[7.5px] font-pixel text-amber-300 bg-amber-400/10 border border-amber-400/20 px-1 py-0.2 rounded shrink-0">
+                                            ★ {p.rating}
+                                          </span>
+                                        )}
+                                      </div>
                                   </div>
                                 </div>
                                 <div className="text-right shrink-0">

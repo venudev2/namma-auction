@@ -1382,7 +1382,8 @@ const AuctionRoom = () => {
                                                    const pid = typeof s === 'string' ? s : s.id;
                                                    const bidVal = typeof s === 'string' ? null : s.bid;
                                                    const pInfo = IPL_PLAYERS.find(pl => pl.id === pid);
-                                                   return { ...pInfo, bidVal };
+                                                   const rating = getPlayerDynamicRating(pInfo, id, currentAuction?.settings?.ratingDeltas) || pInfo?.rating;
+                                                   return { ...pInfo, bidVal, rating };
                                                 });
 
                                                 const playersInRole = squadWithDisplayData.filter(p => p?.role === role);
@@ -1399,15 +1400,20 @@ const AuctionRoom = () => {
                                                       <div className="space-y-1">
                                                          {playersInRole.map((p, sidx) => (
                                                             <div key={sidx} className="py-1 flex items-center justify-between group hover:bg-white/[0.01] rounded-lg px-1 transition-all">
-                                                               <div className="flex items-center gap-2">
-                                                                  <img src={p?.image} alt={p?.name || 'Player'} className="w-5 h-5 object-contain rounded bg-white/5" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = getPlayerAvatar(p?.name); }} />
-                                                                  <div className="overflow-hidden">
-                                                                     <div className="flex items-center gap-1">
+                                                               <div className="flex items-center gap-2 min-w-0">
+                                                                  <img src={p?.image} alt={p?.name || 'Player'} className="w-5 h-5 object-contain rounded bg-white/5 shrink-0" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = getPlayerAvatar(p?.name); }} />
+                                                                  <div className="overflow-hidden min-w-0">
+                                                                     <div className="flex items-center gap-1.5">
                                                                         <h5 className="text-[10px] compact:text-[9px] font-semibold text-gray-200 truncate max-w-[80px]">{p?.name}</h5>
+                                                                        {p?.rating > 0 && (
+                                                                           <span className="text-[7.5px] compact:text-[7px] font-pixel text-amber-300 bg-amber-400/10 border border-amber-400/20 px-1 py-0.2 rounded shrink-0">
+                                                                              ★ {p.rating}
+                                                                           </span>
+                                                                        )}
                                                                      </div>
                                                                   </div>
                                                                </div>
-                                                               <span className="text-[9px] compact:text-[8px] font-bold text-slate-300">
+                                                               <span className="text-[9px] compact:text-[8px] font-bold text-slate-300 shrink-0">
                                                                   {p?.bidVal == null ? '—' : `₹${formatCrores(p.bidVal)} Cr`}
                                                                </span>
                                                             </div>
@@ -1505,8 +1511,13 @@ const AuctionRoom = () => {
                                               <h2 className="text-xl sm:text-2xl compact:text-xl font-pixel uppercase tracking-tight text-white leading-tight drop-shadow-[0_2px_12px_rgba(255,255,255,0.08)]">
                                                  {currentPlayer?.name}
                                               </h2>
-                                              <p className="text-[9.5px] sm:text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.2em] sm:tracking-[0.25em] mt-0.5">
-                                                 {currentPlayer?.role} • {currentPlayer?.country}
+                                              <p className="text-[9.5px] sm:text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.2em] sm:tracking-[0.25em] mt-0.5 flex items-center justify-center gap-2">
+                                                 <span>{currentPlayer?.role} • {currentPlayer?.country}</span>
+                                                 {isSold && currentDynamicRating > 0 && (
+                                                    <span className="text-[8.5px] font-pixel text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                       ★ {currentDynamicRating}
+                                                    </span>
+                                                 )}
                                               </p>
                                            </div>
                                         </div>
