@@ -1511,13 +1511,8 @@ const AuctionRoom = () => {
                                               <h2 className="text-xl sm:text-2xl compact:text-xl font-pixel uppercase tracking-tight text-white leading-tight drop-shadow-[0_2px_12px_rgba(255,255,255,0.08)]">
                                                  {currentPlayer?.name}
                                               </h2>
-                                              <p className="text-[9.5px] sm:text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.2em] sm:tracking-[0.25em] mt-0.5 flex items-center justify-center gap-2">
-                                                 <span>{currentPlayer?.role} • {currentPlayer?.country}</span>
-                                                 {isSold && currentDynamicRating > 0 && (
-                                                    <span className="text-[8.5px] font-pixel text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                                       ★ {currentDynamicRating}
-                                                    </span>
-                                                 )}
+                                              <p className="text-[9.5px] sm:text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.2em] sm:tracking-[0.25em] mt-0.5">
+                                                 {currentPlayer?.role} • {currentPlayer?.country}
                                               </p>
                                            </div>
                                         </div>
