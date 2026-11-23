@@ -128,6 +128,15 @@ const Lobby = () => {
     });
   };
 
+  const handleToggleRTM = async () => {
+    if (!isAdmin) return;
+    const current = Boolean(currentAuction?.settings?.enableRTM);
+    await updateRoomSettings(id, {
+      ...(currentAuction?.settings || {}),
+      enableRTM: !current,
+    });
+  };
+
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const handleExitRequest = () => {
@@ -872,6 +881,36 @@ const Lobby = () => {
                       <span className="text-[7.5px] text-slate-500 font-mono">(5–250 lots)</span>
                     </div>
                   )}
+
+                  {/* Optional RTM (Right to Match) Cards Feature */}
+                  <div className="pt-2.5 border-t border-white/5 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9.5px] font-bold uppercase text-slate-200">
+                          Right to Match (RTM) Cards
+                        </span>
+                        <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold">
+                          Optional
+                        </span>
+                      </div>
+                      <p className="text-[8px] text-slate-400 leading-tight mt-0.5">
+                        Gives franchises 2 RTM cards to match winning bids for former players.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRTM()}
+                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                        currentAuction?.settings?.enableRTM ? 'bg-amber-400' : 'bg-white/10'
+                      }`}
+                    >
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full transition-transform absolute top-0.5 ${
+                          currentAuction?.settings?.enableRTM ? 'left-4.5 bg-black' : 'left-1 bg-white'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-[10px] text-slate-300 font-mono space-y-1">

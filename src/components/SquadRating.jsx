@@ -5,6 +5,7 @@ import { IPL_PLAYERS } from '../data/players';
 import { TEAMS } from '../data/teams';
 import { getAuctionAiRating, generateAuctionAiRating } from '../lib/directoryApi';
 import { computeSquadDepartmentBalance } from '../lib/auctionDisplay';
+import { getPlayerDynamicRating } from '../lib/auctionRules';
 
 function generateTacticalScoutAnalysis(eligibleTeams, mode) {
   const scoredTeams = eligibleTeams.map((t) => {
@@ -97,11 +98,26 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
 
   const minPlayers = useMemo(() => {
     const type = currentAuction?.auctionType || 'mega';
-    if (type === 'mega') return 18;
     if (type === 'sprint11' || type === 'legends') return 11;
     if (type === 'sprint5') return 5;
+
+    // Check if the auction was lot-capped or restricted to selected tiers (e.g. only Tier 1)
+    const totalLots = currentAuction?.playerOrder?.length 
+      || currentAuction?.settings?.maxLots 
+      || (currentAuction?.settings?.selectedSets?.length === 1 ? 42 : null);
+
+    const teamCount = Math.max(2, roomTeams.length || 10);
+
+    if (totalLots && totalLots > 0) {
+      const avgPerTeam = totalLots / teamCount;
+      if (avgPerTeam < 15) {
+        // For short / tier-restricted / capped auctions, adapt requirement to squad capacity
+        return Math.max(1, Math.min(18, Math.floor(avgPerTeam * 0.5)));
+      }
+    }
+
     return currentAuction?.settings?.minPlayers || 18;
-  }, [currentAuction]);
+  }, [currentAuction, roomTeams.length]);
 
   const loadAiAnalysis = useCallback(async (force = false) => {
     if (!auctionId || roomTeams.length === 0) return;
@@ -157,10 +173,11 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
           .map((s) => {
             const pid = typeof s === 'string' ? s : s?.id;
             const info = IPL_PLAYERS.find((p) => p.id === pid);
+            const dynamicRating = getPlayerDynamicRating(info, auctionId, currentAuction?.settings?.ratingDeltas);
             return {
               name: info?.name || pid,
               role: info?.role || 'Player',
-              rating: info?.rating || 0,
+              rating: dynamicRating || info?.rating || 0,
             };
           })
           .filter((p) => p.name);
@@ -276,11 +293,12 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
 
       normalizedPlayers.forEach(pId => {
         const playerInfo = IPL_PLAYERS.find(p => p.id === pId);
-        if (playerInfo && playerInfo.rating) {
-          totalRating += playerInfo.rating;
+        const dynamicRating = getPlayerDynamicRating(playerInfo, auctionId, currentAuction?.settings?.ratingDeltas);
+        if (dynamicRating) {
+          totalRating += dynamicRating;
         }
         if (playerInfo) {
-          playersWithInfo.push(playerInfo);
+          playersWithInfo.push({ ...playerInfo, rating: dynamicRating || playerInfo.rating });
         }
       });
 

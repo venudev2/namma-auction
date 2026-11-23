@@ -1,7 +1,7 @@
 import { IPL_PLAYERS } from '../data/players.js';
 import { TEAMS } from '../data/teams.js';
 import { countOverseas, isOverseasPlayer, toFiniteNumber } from './auctionDisplay.js';
-import { getNextBidAmount } from './auctionRules.js';
+import { getNextBidAmount, getPlayerDynamicRating } from './auctionRules.js';
 
 /**
  * Player Set → Tier Multipliers
@@ -98,16 +98,17 @@ const TEAM_PREFERENCES = {
  * Computes a bot's max valuation for a player.
  * Returns a value in Cr that varies per team, per player, and per auction run.
  */
-function computeBotValuation({ player, botTeam, squadLimit, budgetRemaining, initialBudget, randomFn = Math.random }) {
+function computeBotValuation({ player, botTeam, squadLimit, budgetRemaining, initialBudget, roomId, ratingDeltas, randomFn = Math.random }) {
   const basePrice = toFiniteNumber(player.basePrice, 0.30);
   const set = player.tier || player.set || 'Tier 3';
   const teamId = botTeam.teamId;
+  const effectiveRating = getPlayerDynamicRating(player, roomId, ratingDeltas);
 
   // 1. Set tier drives the baseline
   let tier = SET_TIER[set];
   if (!tier) {
     if (set === 'Legends') {
-      const r = Number(player.rating) || 75;
+      const r = Number(effectiveRating) || 75;
       if (r >= 90) tier = { base: 5.5, max: 9.5 };
       else if (r >= 82) tier = { base: 3.5, max: 6.5 };
       else if (r >= 75) tier = { base: 2.2, max: 4.8 };
@@ -129,21 +130,23 @@ function computeBotValuation({ player, botTeam, squadLimit, budgetRemaining, ini
   }
 
   // 3. Per-bot random willingness (simulates scouting reports / mood)
-  //    Each bot rolls a number per player that varies how keen they are this time
   const willingnessFactor = tier.base + randomFn() * (tier.max - tier.base);
 
-  // 4. Budget pressure factor — bots spend slightly more aggressively
+  // 4. Dynamic Rating impact multiplier: higher dynamic ratings earn a natural premium
+  const ratingMult = Math.max(0.75, Math.min(1.35, effectiveRating / 78));
+
+  // 5. Budget pressure factor — bots spend slightly more aggressively
   //    as the auction progresses (e.g., "must complete squad")
   const budgetUsed = 1 - (budgetRemaining / (initialBudget || 120));
   const urgencyBoost = 1.0 + budgetUsed * 0.25; // up to +25% late in auction
 
-  // 5. Squad completion pressure — boost if squad is almost full and slots remain
+  // 6. Squad completion pressure — boost if squad is almost full and slots remain
   const slotsLeft = squadLimit - (botTeam.squad?.length || 0);
   const squadUrgency = slotsLeft <= 3 ? 1.15 : 1.0;
 
-  // 6. Final max valuation
+  // 7. Final max valuation
   const effectiveBase = set === 'Legends' ? Math.max(basePrice, 1.0) : basePrice;
-  let maxVal = effectiveBase * willingnessFactor * personalityMult * urgencyBoost * squadUrgency;
+  let maxVal = effectiveBase * willingnessFactor * personalityMult * ratingMult * urgencyBoost * squadUrgency;
 
   // Personality cap overrides
   if (prefs.personality === 'aggressive') {

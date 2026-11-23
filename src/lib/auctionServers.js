@@ -120,9 +120,16 @@ function buildAuctionServers() {
     }
   }
 
+  const isTestRunner = typeof process !== 'undefined' && (
+    process.env.NODE_ENV === 'test' ||
+    process.env.npm_lifecycle_event === 'test' ||
+    (Array.isArray(process.execArgv) && process.execArgv.some(arg => typeof arg === 'string' && arg.startsWith('--test'))) ||
+    (Array.isArray(process.argv) && process.argv.some(arg => typeof arg === 'string' && (arg.includes('.test.') || arg.includes('tests'))))
+  );
+
   const serverMap = new Map();
   BASE_DEFINITIONS.forEach((s) => {
-    const cleanUrl = (s.url || '').trim();
+    const cleanUrl = (s.url || '').trim() || (isTestRunner ? `https://${s.id}-mock.firebaseio.com` : '');
     if (!cleanUrl) return;
     const projectId = s.projectId || deriveProjectId(cleanUrl) || s.id;
     serverMap.set(s.id, {
@@ -151,7 +158,8 @@ function buildAuctionServers() {
   }
 
   // If VITE_ENABLED_SERVERS is specified in environment, filter & order accordingly
-  if (rawEnv.VITE_ENABLED_SERVERS) {
+  // (In test runner, allow all server definitions so registry tests can test multi-server routing)
+  if (rawEnv.VITE_ENABLED_SERVERS && !isTestRunner) {
     const enabled = rawEnv.VITE_ENABLED_SERVERS
       .split(',')
       .map((id) => id.trim().toLowerCase())

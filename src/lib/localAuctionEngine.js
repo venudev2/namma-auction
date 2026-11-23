@@ -1,7 +1,7 @@
 import { IPL_PLAYERS } from '../data/players.js';
 import { TEAMS } from '../data/teams.js';
 import { toFiniteNumber, countOverseas, isOverseasPlayer, r2 } from './auctionDisplay.js';
-import { getNextBidAmount, generatePlayerOrder, normalizePlayerOrder } from './auctionRules.js';
+import { getNextBidAmount, generatePlayerOrder, normalizePlayerOrder, getPlayerDynamicRating, canTeamUseRTM, getPlayerOriginalTeam } from './auctionRules.js';
 import { evaluateBotBid } from './botEngine.js';
 import { simulateBotLot, simulateRemainingAuction } from './botSimulation.js';
 
@@ -355,6 +355,11 @@ export function localAuctionReducer(state, action) {
       // skip the sold/unsold celebration. ADVANCE_LOT is the only way forward.
       if (live.status === 'sold' || live.status === 'unsold') return state;
 
+      if (live.status === 'rtm') {
+        // Auto-decline RTM on expiration / timer end
+        return localAuctionReducer(state, { type: 'DECLINE_RTM', now: action.now || Date.now() });
+      }
+
       if (live.status !== 'bidding') return state;
 
       const { now = Date.now() } = action;
@@ -362,6 +367,124 @@ export function localAuctionReducer(state, action) {
       if (!player) return state;
 
       const isSold = Boolean(live.highBidderId && live.currentBid > 0);
+
+      // Check Right to Match (RTM)
+      if (isSold && state.settings?.enableRTM && live.status === 'bidding') {
+        const origTeamId = getPlayerOriginalTeam(player);
+        if (origTeamId && origTeamId !== live.highBidderTeamId && canTeamUseRTM(player, origTeamId, state.roomTeams, live.currentBid, state.settings)) {
+          const origTeamObj = (state.roomTeams || []).find((t) => (t.teamId || t.id) === origTeamId);
+          if (origTeamObj) {
+            const isHuman = !origTeamObj.userId?.startsWith('bot_') && !origTeamObj.isBot;
+            if (isHuman) {
+              const rtmLot = {
+                ...live,
+                status: 'rtm',
+                rtmTeamId: origTeamId,
+                rtmTeamName: origTeamObj.teamName || origTeamObj.name || origTeamId,
+                rtmUserId: origTeamObj.userId,
+                rtmPrice: live.currentBid,
+                rtmOriginalBuyerTeamId: live.highBidderTeamId,
+                rtmOriginalBuyerName: live.highBidderName,
+                rtmOriginalBuyerId: live.highBidderId,
+                timerEndsAt: now + 12000,
+              };
+              return {
+                ...state,
+                messages: [
+                  ...state.messages.slice(-50),
+                  {
+                    id: `rtm_prompt_${now}_${player.id}`,
+                    text: `⚡ RIGHT TO MATCH: ${origTeamObj.teamName || origTeamId} has 12s to match ₹${live.currentBid.toFixed(2)} Cr for ${player.name}!`,
+                    type: 'log',
+                    timestamp: now,
+                  },
+                ],
+                currentAuction: rtmLot,
+                currentLot: rtmLot,
+              };
+            } else {
+              // Bot RTM decision: star player + adequate purse
+              const botRating = getPlayerDynamicRating(player, state.id, state.settings?.ratingDeltas);
+              const botPurse = toFiniteNumber(origTeamObj.budgetRemaining, 120);
+              const willExercise = (botRating >= 80 && botPurse >= live.currentBid * 1.2) ||
+                                   (botRating >= 74 && botPurse >= live.currentBid * 1.5 && Math.random() < 0.65);
+              if (willExercise) {
+                const buyerId = origTeamObj.userId;
+                const buyerTeamId = origTeamId;
+                const buyerName = origTeamObj.teamName || origTeamObj.name || origTeamId;
+                const updatedRoomTeams = state.roomTeams.map((t) => {
+                  if ((t.teamId || t.id) !== buyerTeamId) return t;
+                  const newSquad = [
+                    ...(t.squad || []),
+                    {
+                      id: player.id,
+                      name: player.name,
+                      role: player.role,
+                      bid: live.currentBid,
+                      team: buyerTeamId,
+                      rtm: true,
+                    },
+                  ];
+                  const newSpent = toFiniteNumber(t.spent, 0) + live.currentBid;
+                  const newBudget = Math.max(0, toFiniteNumber(t.budgetRemaining, state.settings?.budget || 120) - live.currentBid);
+                  const newRtm = (t.rtmRemaining !== undefined ? t.rtmRemaining : 2) - 1;
+                  return {
+                    ...t,
+                    squad: newSquad,
+                    spent: newSpent,
+                    budgetRemaining: newBudget,
+                    rtmRemaining: Math.max(0, newRtm),
+                  };
+                });
+                const updatedPlayers = state.players.map((p) => {
+                  if (p.id !== buyerId) return p;
+                  return {
+                    ...p,
+                    spent: toFiniteNumber(p.spent, 0) + live.currentBid,
+                    squadCount: toFiniteNumber(p.squadCount, 0) + 1,
+                  };
+                });
+                const celebrationMs = 5000;
+                const resolvedLot = {
+                  ...live,
+                  status: 'sold',
+                  highBidderId: buyerId,
+                  highBidderName: buyerName,
+                  highBidderTeamId: buyerTeamId,
+                  isRtmMatch: true,
+                  celebrationEndsAt: now + celebrationMs,
+                  timerEndsAt: now + celebrationMs,
+                };
+                return {
+                  ...state,
+                  roomTeams: updatedRoomTeams,
+                  teams: updatedRoomTeams,
+                  players: updatedPlayers,
+                  messages: [
+                    ...state.messages.slice(-50),
+                    {
+                      id: `res_rtm_${now}_${player.id}`,
+                      text: `⚡ RTM EXERCISED! ${buyerName} matched ₹${live.currentBid.toFixed(2)} Cr to retain ${player.name}!`,
+                      type: 'sold_card',
+                      metadata: {
+                        playerId: player.id,
+                        teamId: buyerTeamId,
+                        bid: live.currentBid,
+                        buyerId,
+                        buyerName,
+                        rtm: true,
+                      },
+                      timestamp: now,
+                    },
+                  ],
+                  currentAuction: resolvedLot,
+                  currentLot: resolvedLot,
+                };
+              }
+            }
+          }
+        }
+      }
       let updatedRoomTeams = state.roomTeams;
       let updatedPlayers = state.players;
 
@@ -496,6 +619,179 @@ export function localAuctionReducer(state, action) {
       };
     }
 
+    case 'EXERCISE_RTM': {
+      if (!state || state.status !== 'active') return state;
+      const live = state.currentAuction;
+      if (!live || live.status !== 'rtm') return state;
+
+      const { now = Date.now(), teamId } = action;
+      if (teamId && live.rtmTeamId && teamId !== live.rtmTeamId) return state;
+
+      const player = IPL_PLAYERS.find((p) => p.id === live.playerId);
+      if (!player) return state;
+
+      const buyerId = live.rtmUserId;
+      const buyerTeamId = live.rtmTeamId;
+      const buyerName = live.rtmTeamName;
+
+      const updatedRoomTeams = state.roomTeams.map((t) => {
+        if ((t.teamId || t.id) !== buyerTeamId) return t;
+        const newSquad = [
+          ...(t.squad || []),
+          {
+            id: player.id,
+            name: player.name,
+            role: player.role,
+            bid: live.currentBid,
+            team: buyerTeamId,
+            rtm: true,
+          },
+        ];
+        const newSpent = toFiniteNumber(t.spent, 0) + live.currentBid;
+        const newBudget = Math.max(0, toFiniteNumber(t.budgetRemaining, state.settings?.budget || 120) - live.currentBid);
+        const newRtm = (t.rtmRemaining !== undefined ? t.rtmRemaining : 2) - 1;
+        return {
+          ...t,
+          squad: newSquad,
+          spent: newSpent,
+          budgetRemaining: newBudget,
+          rtmRemaining: Math.max(0, newRtm),
+        };
+      });
+
+      const updatedPlayers = state.players.map((p) => {
+        if (p.id !== buyerId) return p;
+        return {
+          ...p,
+          spent: toFiniteNumber(p.spent, 0) + live.currentBid,
+          squadCount: toFiniteNumber(p.squadCount, 0) + 1,
+        };
+      });
+
+      const celebrationMs = 5000;
+      const resolvedLot = {
+        ...live,
+        status: 'sold',
+        highBidderId: buyerId,
+        highBidderName: buyerName,
+        highBidderTeamId: buyerTeamId,
+        isRtmMatch: true,
+        celebrationEndsAt: now + celebrationMs,
+        timerEndsAt: now + celebrationMs,
+      };
+
+      const resultMsg = `⚡ RTM EXERCISED! ${buyerName} exercised Right to Match to retain ${player.name} for ₹${live.currentBid.toFixed(2)} Cr!`;
+
+      return {
+        ...state,
+        roomTeams: updatedRoomTeams,
+        teams: updatedRoomTeams,
+        players: updatedPlayers,
+        messages: [
+          ...state.messages.slice(-50),
+          {
+            id: `res_rtm_${now}_${player.id}`,
+            text: resultMsg,
+            type: 'sold_card',
+            metadata: {
+              playerId: player.id,
+              teamId: buyerTeamId,
+              bid: live.currentBid,
+              buyerId,
+              buyerName,
+              rtm: true,
+            },
+            timestamp: now,
+          },
+        ],
+        currentAuction: resolvedLot,
+        currentLot: resolvedLot,
+      };
+    }
+
+    case 'DECLINE_RTM': {
+      if (!state || state.status !== 'active') return state;
+      const live = state.currentAuction;
+      if (!live || live.status !== 'rtm') return state;
+
+      const { now = Date.now() } = action;
+      const player = IPL_PLAYERS.find((p) => p.id === live.playerId);
+      if (!player) return state;
+
+      const buyerId = live.rtmOriginalBuyerId || live.highBidderId;
+      const buyerTeamId = live.rtmOriginalBuyerTeamId || live.highBidderTeamId;
+      const buyerName = live.rtmOriginalBuyerName || live.highBidderName;
+
+      const updatedRoomTeams = state.roomTeams.map((t) => {
+        if (t.userId !== buyerId) return t;
+        const newSquad = [
+          ...(t.squad || []),
+          {
+            id: player.id,
+            name: player.name,
+            role: player.role,
+            bid: live.currentBid,
+            team: buyerTeamId,
+          },
+        ];
+        const newSpent = toFiniteNumber(t.spent, 0) + live.currentBid;
+        const newBudget = Math.max(0, toFiniteNumber(t.budgetRemaining, state.settings?.budget || 120) - live.currentBid);
+        return {
+          ...t,
+          squad: newSquad,
+          spent: newSpent,
+          budgetRemaining: newBudget,
+        };
+      });
+
+      const updatedPlayers = state.players.map((p) => {
+        if (p.id !== buyerId) return p;
+        return {
+          ...p,
+          spent: toFiniteNumber(p.spent, 0) + live.currentBid,
+          squadCount: toFiniteNumber(p.squadCount, 0) + 1,
+        };
+      });
+
+      const celebrationMs = 5000;
+      const resolvedLot = {
+        ...live,
+        status: 'sold',
+        highBidderId: buyerId,
+        highBidderName: buyerName,
+        highBidderTeamId: buyerTeamId,
+        celebrationEndsAt: now + celebrationMs,
+        timerEndsAt: now + celebrationMs,
+      };
+
+      const resultMsg = `${player.name} SOLD to ${buyerName} for ₹${live.currentBid.toFixed(2)} Cr`;
+
+      return {
+        ...state,
+        roomTeams: updatedRoomTeams,
+        teams: updatedRoomTeams,
+        players: updatedPlayers,
+        messages: [
+          ...state.messages.slice(-50),
+          {
+            id: `res_${now}_${player.id}`,
+            text: resultMsg,
+            type: 'sold_card',
+            metadata: {
+              playerId: player.id,
+              teamId: buyerTeamId,
+              bid: live.currentBid,
+              buyerId,
+              buyerName,
+            },
+            timestamp: now,
+          },
+        ],
+        currentAuction: resolvedLot,
+        currentLot: resolvedLot,
+      };
+    }
+
     case 'ADVANCE_LOT': {
       if (!state || state.status !== 'active') return state;
       const { now = Date.now() } = action;
@@ -505,7 +801,7 @@ export function localAuctionReducer(state, action) {
       if (allDone) {
         const completedLot = {
           ...(state.currentAuction || {}),
-          status: 'sold',
+          status: 'completed',
         };
         return {
           ...state,

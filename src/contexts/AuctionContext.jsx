@@ -1128,6 +1128,61 @@ export const AuctionProvider = ({ children }) => {
   // Backward-compatible alias
   const skipCurrentPlayerSolo = passCurrentLot;
 
+  const exerciseRtm = useCallback(async (roomId, teamId) => {
+    if (!roomId) return;
+    if (isLocalRoom(roomId, currentAuction?.server)) {
+      updateLocalSoloState({ type: 'EXERCISE_RTM', teamId, now: Date.now() });
+      return;
+    }
+    try {
+      const server = normalizeServer(currentAuction?.server || getActiveServer());
+      const rtdbInstance = getRtdb(server);
+      const liveRef = ref(rtdbInstance, `auctions/${roomId}/live`);
+      const snap = await get(liveRef);
+      if (snap.exists() && snap.val()?.status === 'rtm') {
+        const liveVal = snap.val();
+        await updateRtdb(liveRef, {
+          status: 'sold',
+          highBidderId: user?.uid,
+          highBidderTeamId: teamId,
+          highBidderName: user?.displayName || teamId,
+          isRtmMatch: true,
+          celebrationEndsAt: getSyncedTime() + 5000,
+          timerEndsAt: getSyncedTime() + 5000,
+        });
+      }
+    } catch (err) {
+      console.warn('[auction] exerciseRtm error', err);
+    }
+  }, [currentAuction?.server, user, getSyncedTime]);
+
+  const declineRtm = useCallback(async (roomId) => {
+    if (!roomId) return;
+    if (isLocalRoom(roomId, currentAuction?.server)) {
+      updateLocalSoloState({ type: 'DECLINE_RTM', now: Date.now() });
+      return;
+    }
+    try {
+      const server = normalizeServer(currentAuction?.server || getActiveServer());
+      const rtdbInstance = getRtdb(server);
+      const liveRef = ref(rtdbInstance, `auctions/${roomId}/live`);
+      const snap = await get(liveRef);
+      if (snap.exists() && snap.val()?.status === 'rtm') {
+        const liveVal = snap.val();
+        await updateRtdb(liveRef, {
+          status: 'sold',
+          highBidderId: liveVal.rtmOriginalBuyerId || liveVal.highBidderId,
+          highBidderTeamId: liveVal.rtmOriginalBuyerTeamId || liveVal.highBidderTeamId,
+          highBidderName: liveVal.rtmOriginalBuyerName || liveVal.highBidderName,
+          celebrationEndsAt: getSyncedTime() + 5000,
+          timerEndsAt: getSyncedTime() + 5000,
+        });
+      }
+    } catch (err) {
+      console.warn('[auction] declineRtm error', err);
+    }
+  }, [currentAuction?.server, getSyncedTime]);
+
   /**
    * Multiplayer consensus pass vote:
    * Records a user's pass vote. If all eligible non-leading human managers have agreed,
@@ -2904,6 +2959,8 @@ export const AuctionProvider = ({ children }) => {
     votePassLot,
     skipCurrentPlayerSolo,
     fastForwardAuctionSolo,
+    exerciseRtm,
+    declineRtm,
     getSyncedTime,
     soloLockStatus,
     takeOverSoloAuction

@@ -31,6 +31,7 @@ import {
   withServerParam,
 } from "../lib/auctionServers";
 import { localAuctionReducer, saveLocalSoloRoom, listLocalSoloRooms, deleteLocalSoloRoom } from "../lib/localAuctionEngine";
+import { generateRoomRatingDeltas } from "../lib/auctionRules";
 import { IPL_PLAYERS } from "../data/players";
 import { TEAMS } from "../data/teams";
 import {
@@ -162,6 +163,7 @@ const LandingPage = () => {
   const [auctionType, setAuctionType] = useState("mega"); 
   const [selectedTiers, setSelectedTiers] = useState(["Tier 1", "Tier 2", "Tier 3"]);
   const [maxLots, setMaxLots] = useState(null);
+  const [enableRTM, setEnableRTM] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customLotVal, setCustomLotVal] = useState("60");
   const [playSolo, setPlaySolo] = useState(false);
@@ -570,6 +572,8 @@ const LandingPage = () => {
           bidTimer: 10,
           selectedSets: selectedTiers,
           maxLots: maxLots,
+          enableRTM: enableRTM,
+          ratingDeltas: generateRoomRatingDeltas(),
         },
         bidTimer: 10,
       });
@@ -621,6 +625,8 @@ const LandingPage = () => {
               {
                 selectedSets: selectedTiers,
                 maxLots: maxLots,
+                enableRTM: enableRTM,
+                ratingDeltas: generateRoomRatingDeltas(),
               },
             );
             newRoomId = candidate;
@@ -1263,12 +1269,12 @@ const LandingPage = () => {
                         {
                           id: "Tier 1",
                           label: "Tier 1: Marquees & Superstars",
-                          desc: "₹2.00 Cr Base • 47 Players",
+                          desc: "₹2.00 Cr Base • 42 Players",
                         },
                         {
                           id: "Tier 2",
                           label: "Tier 2: Established Stars",
-                          desc: "₹1–1.50 Cr Base • 85 Players",
+                          desc: "₹1–1.50 Cr Base • 90 Players",
                         },
                         {
                           id: "Tier 3",
@@ -1381,6 +1387,36 @@ const LandingPage = () => {
                         <span className="text-[8px] text-slate-500 font-mono">(5–250 lots)</span>
                       </div>
                     )}
+
+                    {/* Optional RTM (Right to Match) Cards Feature */}
+                    <div className="pt-2.5 border-t border-white/5 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9.5px] font-bold uppercase text-slate-200">
+                            Right to Match (RTM) Cards
+                          </span>
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="text-[8px] text-slate-400 leading-tight mt-0.5">
+                          Gives franchises 2 RTM cards to match winning bids for former players.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEnableRTM(!enableRTM)}
+                        className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                          enableRTM ? 'bg-amber-400' : 'bg-white/10'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full transition-transform absolute top-0.5 ${
+                            enableRTM ? 'left-4.5 bg-black' : 'left-1 bg-white'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 )}
 

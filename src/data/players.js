@@ -34,7 +34,7 @@ export const IPL_PLAYERS = [
       "avg": 23.75,
       "bb": "5/10"
     },
-    "rating": 82,
+    "rating": 85,
     "tier": "Tier 1"
   },
   {
@@ -72,7 +72,7 @@ export const IPL_PLAYERS = [
       "avg": 28.03,
       "bb": "5/32"
     },
-    "rating": 64,
+    "rating": 70,
     "tier": "Tier 1"
   },
   {
@@ -291,7 +291,7 @@ export const IPL_PLAYERS = [
     "type": "Overseas",
     "country": "OS",
     "basePrice": 2,
-    "set": "Tier 1",
+    "set": "Tier 2",
     "image": "https://upload.wikimedia.org/wikipedia/commons/4/41/Marco_Jansen_2022.jpg",
     "stats": {
       "matches": 49,
@@ -301,7 +301,7 @@ export const IPL_PLAYERS = [
       "sr": 110.34
     },
     "rating": 48,
-    "tier": "Tier 1"
+    "tier": "Tier 2"
   },
   {
     "id": "p_116",
@@ -310,7 +310,7 @@ export const IPL_PLAYERS = [
     "type": "Overseas",
     "country": "OS",
     "basePrice": 2,
-    "set": "Tier 1",
+    "set": "Tier 2",
     "image": "https://upload.wikimedia.org/wikipedia/commons/7/73/Mitchell_Marsh.jpg",
     "stats": {
       "matches": 68,
@@ -320,7 +320,7 @@ export const IPL_PLAYERS = [
       "econ": 8.52
     },
     "rating": 76,
-    "tier": "Tier 1"
+    "tier": "Tier 2"
   },
   {
     "id": "p_117",
@@ -357,7 +357,7 @@ export const IPL_PLAYERS = [
       "avg": 29.02,
       "bb": "4/11"
     },
-    "rating": 68,
+    "rating": 70,
     "tier": "Tier 1"
   },
   {
@@ -376,7 +376,7 @@ export const IPL_PLAYERS = [
       "avg": 30.55,
       "bb": "4/17"
     },
-    "rating": 65,
+    "rating": 75,
     "tier": "Tier 1"
   },
   {
@@ -395,7 +395,7 @@ export const IPL_PLAYERS = [
       "sr": 137.45,
       "hs": "84*"
     },
-    "rating": 76,
+    "rating": 82,
     "tier": "Tier 1"
   },
   {
@@ -424,7 +424,7 @@ export const IPL_PLAYERS = [
     "type": "Overseas",
     "country": "OS",
     "basePrice": 2,
-    "set": "Tier 1",
+    "set": "Tier 2",
     "image": "https://documents.iplt20.com/ipl/IPLHeadshot2025/975.png",
     "stats": {
       "matches": 51,
@@ -434,7 +434,7 @@ export const IPL_PLAYERS = [
       "bb": "4/18"
     },
     "rating": 70,
-    "tier": "Tier 1"
+    "tier": "Tier 2"
   },
   {
     "id": "p_123",
@@ -519,7 +519,7 @@ export const IPL_PLAYERS = [
     "type": "Indian",
     "country": "IND",
     "basePrice": 2,
-    "set": "Tier 1",
+    "set": "Tier 2",
     "image": "https://documents.iplt20.com/ipl/IPLHeadshot2026/152.png",
     "stats": {
       "matches": 73,
@@ -529,7 +529,7 @@ export const IPL_PLAYERS = [
       "hs": "83*"
     },
     "rating": 70,
-    "tier": "Tier 1"
+    "tier": "Tier 2"
   },
   {
     "id": "p_128",
@@ -2153,7 +2153,7 @@ export const IPL_PLAYERS = [
     "type": "Indian",
     "country": "IND",
     "basePrice": 2,
-    "set": "Tier 1",
+    "set": "Tier 2",
     "image": "https://documents.iplt20.com/ipl/IPLHeadshot2025/137.png",
     "stats": {
       "matches": 66,
@@ -2163,7 +2163,7 @@ export const IPL_PLAYERS = [
       "hs": "103*"
     },
     "rating": 75,
-    "tier": "Tier 1"
+    "tier": "Tier 2"
   },
   {
     "id": "p_195",

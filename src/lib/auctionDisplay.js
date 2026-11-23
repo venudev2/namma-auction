@@ -173,7 +173,7 @@ export const getPlayerAvatar = (name = 'Player') => {
  * rewarding balanced, well-rounded sides so a balanced team wins.
  */
 export const computeSquadDepartmentBalance = (playersWithInfo = [], isDisqualified = false) => {
-  if (isDisqualified || playersWithInfo.length === 0) {
+  if (playersWithInfo.length === 0) {
     return {
       rawAvgRating: 0,
       balancedRating: 0,
@@ -210,53 +210,80 @@ export const computeSquadDepartmentBalance = (playersWithInfo = [], isDisqualifi
   const keeperCount = wks.length;
 
   let balanceAdjustment = 0;
+  const squadSize = playersWithInfo.length;
 
-  // 1. Wicketkeeper requirement (a viable cricket XI must have a keeper)
-  if (keeperCount === 0) {
-    balanceAdjustment -= 4.0;
+  if (squadSize >= 11) {
+    // 1. Wicketkeeper requirement (a viable cricket XI must have a keeper)
+    if (keeperCount === 0) {
+      balanceAdjustment -= 4.0;
+    } else {
+      balanceAdjustment += 0.5;
+    }
+
+    // 2. Bowling attack depth (need at least 4-5 bowling options)
+    if (bowlingOptions === 0) {
+      balanceAdjustment -= 12.0;
+    } else if (bowlingOptions === 1) {
+      balanceAdjustment -= 8.0;
+    } else if (bowlingOptions === 2) {
+      balanceAdjustment -= 5.0;
+    } else if (bowlingOptions === 3) {
+      balanceAdjustment -= 2.0;
+    } else if (bowlingOptions >= 5) {
+      balanceAdjustment += 2.0;
+    } else if (bowlingOptions >= 4) {
+      balanceAdjustment += 1.0;
+    }
+
+    // 3. Batting depth
+    if (battingOptions < 4) {
+      balanceAdjustment -= 6.0;
+    } else if (battingOptions >= 6) {
+      balanceAdjustment += 1.0;
+    }
+
+    // 4. All-Rounder flexibility
+    if (ars.length >= 2) {
+      balanceAdjustment += 1.5;
+    } else if (ars.length === 1) {
+      balanceAdjustment += 0.5;
+    }
+
+    // 5. Batting vs Bowling department parity
+    const batUnitAvg = calcAvg([...bats, ...wks]) ?? rawAvgRating;
+    const bowlUnitAvg = bowlAvg ?? (arAvg ? arAvg * 0.9 : 60);
+    const parityGap = Math.abs(batUnitAvg - bowlUnitAvg);
+    if (parityGap > 8) {
+      balanceAdjustment -= Number(((parityGap - 8) * 0.35).toFixed(1));
+    }
   } else {
-    balanceAdjustment += 0.5;
+    // Short / Tier-selected / Mini auction balance
+    if (keeperCount >= 1) balanceAdjustment += 1.0;
+    if (bowlingOptions >= 1) balanceAdjustment += 1.0;
+    if (battingOptions >= 1) balanceAdjustment += 1.0;
+    if (ars.length >= 1) balanceAdjustment += 0.5;
   }
 
-  // 2. Bowling attack depth (need at least 4-5 bowling options)
-  if (bowlingOptions === 0) {
-    balanceAdjustment -= 12.0;
-  } else if (bowlingOptions === 1) {
-    balanceAdjustment -= 8.0;
-  } else if (bowlingOptions === 2) {
-    balanceAdjustment -= 5.0;
-  } else if (bowlingOptions === 3) {
-    balanceAdjustment -= 2.0;
-  } else if (bowlingOptions >= 5) {
-    balanceAdjustment += 2.0;
-  } else if (bowlingOptions >= 4) {
-    balanceAdjustment += 1.0;
-  }
-
-  // 3. Batting depth
-  if (battingOptions < 4) {
-    balanceAdjustment -= 6.0;
-  } else if (battingOptions >= 6) {
-    balanceAdjustment += 1.0;
-  }
-
-  // 4. All-Rounder flexibility
-  if (ars.length >= 2) {
-    balanceAdjustment += 1.5;
-  } else if (ars.length === 1) {
-    balanceAdjustment += 0.5;
-  }
-
-  // 5. Batting vs Bowling department parity
-  const batUnitAvg = calcAvg([...bats, ...wks]) ?? rawAvgRating;
-  const bowlUnitAvg = bowlAvg ?? (arAvg ? arAvg * 0.9 : 60);
-  const parityGap = Math.abs(batUnitAvg - bowlUnitAvg);
-  if (parityGap > 8) {
-    balanceAdjustment -= Number(((parityGap - 8) * 0.35).toFixed(1));
+  if (isDisqualified) {
+    return {
+      rawAvgRating,
+      balancedRating: 0,
+      balanceScore: 0,
+      balanceAdjustment: 0,
+      balanceVerdict: 'Disqualified',
+      batAvg,
+      bowlAvg,
+      arAvg,
+      wkAvg,
+      batCount: bats.length,
+      bowlCount: bowls.length,
+      arCount: ars.length,
+      wkCount: wks.length,
+    };
   }
 
   const calculatedScore = Number((rawAvgRating + balanceAdjustment).toFixed(1));
-  const balancedRating = Math.min(99, Math.max(45, calculatedScore));
+  const balancedRating = Math.min(99, Math.max(35, calculatedScore));
 
   return {
     rawAvgRating,

@@ -42,7 +42,7 @@ import useRoomServer from '../hooks/useRoomServer';
 import { SERVER_LOCAL, withServerParam } from '../lib/auctionServers';
 import { isLocalRoom } from '../lib/localAuctionEngine';
 import useDocumentTitle from '../hooks/useDocumentTitle';
-import { getNextBidAmount, normalizePlayerOrder } from '../lib/auctionRules';
+import { getNextBidAmount, normalizePlayerOrder, getPlayerDynamicRating, canTeamUseRTM, getPlayerOriginalTeam } from '../lib/auctionRules';
 import {
    computeTeamSpent,
    countOverseas,
@@ -77,6 +77,8 @@ const AuctionRoom = () => {
       votePassLot,
       skipCurrentPlayerSolo,
       fastForwardAuctionSolo,
+      exerciseRtm,
+      declineRtm,
       getSyncedTime,
       soloLockStatus,
       takeOverSoloAuction
@@ -235,8 +237,9 @@ const AuctionRoom = () => {
          squad.forEach(member => {
             const pid = typeof member === 'string' ? member : member.id;
             const pInfo = playerMap.get(pid);
-            if (pInfo?.rating) {
-               totalRating += pInfo.rating;
+            const dynamicRating = getPlayerDynamicRating(pInfo, id, currentAuction?.settings?.ratingDeltas);
+            if (dynamicRating) {
+               totalRating += dynamicRating;
                ratedPlayersCount += 1;
             }
          });
@@ -331,6 +334,11 @@ const AuctionRoom = () => {
    const currentPlayer = useMemo(() => {
       return IPL_PLAYERS.find(p => p.id === displayAuctionState?.playerId) || IPL_PLAYERS[0];
    }, [displayAuctionState?.playerId]);
+
+   const currentDynamicRating = useMemo(() => {
+      if (!currentPlayer) return 0;
+      return getPlayerDynamicRating(currentPlayer, id, currentAuction?.settings?.ratingDeltas);
+   }, [currentPlayer, id, currentAuction?.settings?.ratingDeltas]);
 
    const loadSavedVoiceSettings = () => {
       if (typeof window === 'undefined') return null;
@@ -1534,9 +1542,75 @@ const AuctionRoom = () => {
                                   </div>
                                </motion.div>
                             );
-                         })() : (
-                           <motion.div
-                              key="player-card"
+                         })() : displayAuctionState?.status === 'rtm' ? (() => {
+                            const rtmTeam = TEAMS.find(t => t.id === displayAuctionState.rtmTeamId);
+                            const isMyRTM = Boolean(team && (team.id === displayAuctionState.rtmTeamId || (displayAuctionState.rtmUserId && user && displayAuctionState.rtmUserId === user.uid)));
+                            return (
+                               <motion.div
+                                  key="rtm-card"
+                                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.97, y: -6 }}
+                                  className="w-full max-w-lg mx-auto will-change-transform"
+                               >
+                                  <div className="relative w-full rounded-[2rem] overflow-hidden bg-[#0c0d10] border border-amber-500/30 shadow-[0_24px_80px_rgba(245,158,11,0.25)] p-6 flex flex-col gap-5 text-center">
+                                     <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+                                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                        <span className="text-[10px] font-pixel text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                                           ⚡ RIGHT TO MATCH (RTM)
+                                        </span>
+                                        <span className="text-xs font-mono text-slate-400">
+                                           Winning Bid: ₹{displayAuctionState.currentBid} Cr
+                                        </span>
+                                     </div>
+
+                                     <div className="flex items-center gap-4 text-left">
+                                        <img
+                                           src={currentPlayer?.image}
+                                           alt={currentPlayer?.name}
+                                           className="w-20 h-20 rounded-2xl object-cover bg-white/5 border border-white/10 shadow-lg"
+                                           onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = getPlayerAvatar(currentPlayer?.name); }}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                           <h3 className="text-xl font-pixel text-white truncate">{currentPlayer?.name}</h3>
+                                           <p className="text-xs text-slate-400 mt-0.5">{currentPlayer?.role} • {currentPlayer?.type}</p>
+                                           <p className="text-xs text-amber-300 mt-1 font-mono">Original Franchise: <span className="font-bold">{rtmTeam?.name || displayAuctionState.rtmTeamId}</span></p>
+                                        </div>
+                                     </div>
+
+                                     {isMyRTM ? (
+                                        <div className="flex flex-col gap-3 pt-2">
+                                           <p className="text-xs text-slate-300 leading-relaxed">
+                                              Your franchise holds the Right to Match! Match the winning bid of <span className="text-white font-bold font-mono">₹{displayAuctionState.currentBid} Cr</span> (by {displayAuctionState.highBidderName}) to retain {currentPlayer?.name}.
+                                           </p>
+                                           <div className="grid grid-cols-2 gap-3 mt-1">
+                                              <button
+                                                 type="button"
+                                                 onClick={() => exerciseRtm(id, team?.id || displayAuctionState.rtmTeamId)}
+                                                 className="py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-pixel font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                                              >
+                                                 ⚡ Match & Retain
+                                              </button>
+                                              <button
+                                                 type="button"
+                                                 onClick={() => declineRtm(id)}
+                                                 className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-pixel text-xs uppercase tracking-wider border border-white/10 active:scale-95 transition-all cursor-pointer"
+                                              >
+                                                 Decline RTM
+                                              </button>
+                                           </div>
+                                        </div>
+                                     ) : (
+                                        <div className="py-3 px-4 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-400 font-mono">
+                                           Waiting for <span className="text-amber-300 font-bold">{rtmTeam?.name || displayAuctionState.rtmTeamName || displayAuctionState.rtmTeamId}</span> to decide on Right to Match...
+                                        </div>
+                                     )}
+                                  </div>
+                               </motion.div>
+                            );
+                         })() : currentPlayer ? (
+                            <motion.div
+                               key="player-card"
                               initial={{ opacity: 0, scale: 0.98 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.98 }}
@@ -1594,6 +1668,14 @@ const AuctionRoom = () => {
                         <span className="bg-white/10 backdrop-blur-md border border-white/15 text-slate-200 text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider">
                            {currentPlayer.type}
                         </span>
+                        {currentDynamicRating > 0 && (
+                           <>
+                              <span className="text-slate-500 text-[10px]">•</span>
+                              <span className="bg-white/10 backdrop-blur-md border border-white/15 text-slate-200 text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                 ★ {currentDynamicRating}
+                              </span>
+                           </>
+                        )}
                      </div>
                   </div>
                </div>
@@ -1619,6 +1701,11 @@ const AuctionRoom = () => {
                         <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-wider">
                            Base: ₹{currentPlayer?.basePrice == null ? '—' : `${formatCrores(currentPlayer.basePrice)} Cr`}
                         </span>
+                        {currentDynamicRating > 0 && (
+                           <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-wider">
+                              Rating: {currentDynamicRating}
+                           </span>
+                        )}
                      </div>
                      <h2 className="text-2xl sm:text-3xl xl:text-5xl font-pixel tracking-tight text-white leading-tight truncate drop-shadow-[0_2px_12px_rgba(255,255,255,0.08)]" title={currentPlayer.name}>{currentPlayer.name}</h2>
                   </div>
@@ -1829,6 +1916,10 @@ const AuctionRoom = () => {
                                  </div>
                               </div>
                            </motion.div>
+                        ) : (
+                           <div className="w-full bg-[#0c0d10] border border-white/10 rounded-[2rem] p-12 text-center text-slate-400 font-pixel">
+                              Auction completed. Preparing final summary and team ratings...
+                           </div>
                         )}
                      </AnimatePresence>
 

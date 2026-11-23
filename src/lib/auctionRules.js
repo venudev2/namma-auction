@@ -429,3 +429,133 @@ export function resolveDisconnectAction({
   return 'none';
 }
 
+/**
+ * IPL Franchise association for top players, enabling the optional Right to Match (RTM) card rule.
+ */
+export const PLAYER_ORIGINAL_TEAMS = {
+  'Jasprit Bumrah': 'MI',
+  'Rohit Sharma': 'MI',
+  'Suryakumar Yadav': 'MI',
+  'Hardik Pandya': 'MI',
+  'Tilak Varma': 'MI',
+  'Ishan Kishan': 'MI',
+  'Virat Kohli': 'RCB',
+  'Rajat Patidar': 'RCB',
+  'Mohammed Siraj': 'RCB',
+  'Glenn Maxwell': 'RCB',
+  'Will Jacks': 'RCB',
+  'Mahendra Singh Dhoni': 'CSK',
+  'Ravindra Jadeja': 'CSK',
+  'Ruturaj Gaikwad': 'CSK',
+  'Shivam Dube': 'CSK',
+  'Matheesha Pathirana': 'CSK',
+  'Rishabh Pant': 'DC',
+  'Axar Patel': 'DC',
+  'Kuldeep Yadav': 'DC',
+  'Jake Fraser-McGurk': 'DC',
+  'Shubman Gill': 'GT',
+  'Rashid Khan': 'GT',
+  'Mohammed Shami': 'GT',
+  'Sai Sudharsan': 'GT',
+  'Rahul Tewatia': 'GT',
+  'Sanju Samson': 'RR',
+  'Yashasvi Jaiswal': 'RR',
+  'Jos Buttler': 'RR',
+  'Yuzvendra Chahal': 'RR',
+  'Trent Boult': 'RR',
+  'Riyan Parag': 'RR',
+  'Shimron Hetmyer': 'RR',
+  'Sunil Narine': 'KKR',
+  'Andre Russell': 'KKR',
+  'Rinku Singh': 'KKR',
+  'Shreyas Iyer': 'KKR',
+  'Varun Chakaravarthy': 'KKR',
+  'Harshit Rana': 'KKR',
+  'KL Rahul': 'LSG',
+  'Nicholas Pooran': 'LSG',
+  'Ravi Bishnoi': 'LSG',
+  'Mayank Yadav': 'LSG',
+  'Marcus Stoinis': 'LSG',
+  'Quinton De Kock': 'LSG',
+  'Arshdeep Singh': 'PBKS',
+  'Sam Curran': 'PBKS',
+  'Prabhsimran Singh': 'PBKS',
+  'Jitesh Sharma': 'PBKS',
+  'Shashank Singh': 'PBKS',
+  'Ashutosh Sharma': 'PBKS',
+  'Heinrich Klaasen': 'SRH',
+  'Pat Cummins': 'SRH',
+  'Travis Head': 'SRH',
+  'Abhishek Sharma': 'SRH',
+  'Bhuvneshwar Kumar': 'SRH',
+  'Nitish Kumar Reddy': 'SRH',
+  'T. Natarajan': 'SRH',
+};
+
+/**
+ * Checks whether a team can exercise Right to Match (RTM) on the current player lot.
+ */
+export function getPlayerOriginalTeam(player) {
+  if (!player) return null;
+  return player.originalTeam || player.team || PLAYER_ORIGINAL_TEAMS[player.name] || null;
+}
+
+export function canTeamUseRTM(player, teamId, roomTeams, currentBid, settings) {
+  if (!settings?.enableRTM) return false;
+  if (!player || !teamId || currentBid <= 0) return false;
+  const originalTeam = getPlayerOriginalTeam(player);
+  if (!originalTeam || originalTeam !== teamId) return false;
+
+  const team = (roomTeams || []).find((t) => (t.teamId || t.id) === teamId);
+  if (!team) return false;
+
+  // Each team gets 2 RTM cards by default
+  const rtmRemaining = team.rtmRemaining !== undefined ? team.rtmRemaining : 2;
+  if (rtmRemaining <= 0) return false;
+
+  // Check budget constraint: team must have enough purse left to match the bid
+  const budgetRemaining = team.budgetRemaining !== undefined ? team.budgetRemaining : 120;
+  if (budgetRemaining < currentBid) return false;
+
+  // Check squad limit
+  const squad = team.squad || [];
+  const squadArr = Array.isArray(squad) ? squad : Object.values(squad);
+  const maxSquad = settings?.squadLimit || 25;
+  if (squadArr.length >= maxSquad) return false;
+
+  return true;
+}
+
+/**
+ * Generates room rating deltas: an integer between -3 and +3 for each player.
+ * Applied dynamically per auction room without mentioning any words like "hot" or "cold".
+ */
+export function generateRoomRatingDeltas(players = IPL_PLAYERS) {
+  const deltas = {};
+  players.forEach((p) => {
+    // Discrete random integer: -3, -2, -1, 0, 1, 2, or 3
+    deltas[p.id] = Math.floor(Math.random() * 7) - 3;
+  });
+  return deltas;
+}
+
+/**
+ * Computes a player's dynamic rating for a specific auction room (max +3 or -3).
+ * Fully deterministic per room so all human and bot managers in the same room see identical values.
+ */
+export function getPlayerDynamicRating(player, roomId = null, ratingDeltas = null) {
+  if (!player || typeof player.rating !== 'number') return player?.rating || 0;
+  let delta = 0;
+  if (ratingDeltas && typeof ratingDeltas[player.id] === 'number') {
+    delta = ratingDeltas[player.id];
+  } else if (roomId) {
+    let hash = 0;
+    const str = `${roomId}_${player.id}`;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    delta = (Math.abs(hash) % 7) - 3;
+  }
+  return Math.min(99, Math.max(25, player.rating + delta));
+}
+

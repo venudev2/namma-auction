@@ -12,7 +12,12 @@ import {
   normalizePlayerOrder,
   resolveDisconnectAction,
   shouldArmDisconnectPause,
+  getPlayerDynamicRating,
+  canTeamUseRTM,
+  getPlayerOriginalTeam,
+  generateRoomRatingDeltas,
 } from '../src/lib/auctionRules.js';
+import { localAuctionReducer } from '../src/lib/localAuctionEngine.js';
 import { pausedRemainingMs } from '../src/lib/auctionDisplay.js';
 import { IPL_PLAYERS } from '../src/data/players.js';
 import {
@@ -458,5 +463,131 @@ test('server-side disconnect auto-pause: preserved remaining time derived accura
     pausedAt: 17000,
   };
   assert.equal(pausedRemainingMs(manualPausedLive), 5500, 'explicit remainingMs takes precedence over pausedAt');
+});
+
+test('user requested player rating adjustments match exactly', () => {
+  const bumrah = IPL_PLAYERS.find(p => p.name === 'Jasprit Bumrah');
+  const dhoni = IPL_PLAYERS.find(p => p.name === 'Mahendra Singh Dhoni');
+  const siraj = IPL_PLAYERS.find(p => p.name === 'Mohammed Siraj');
+  const arshdeep = IPL_PLAYERS.find(p => p.name === 'Arshdeep Singh');
+  const shami = IPL_PLAYERS.find(p => p.name === 'Mohammed Shami');
+
+  assert.equal(bumrah?.rating, 85, 'Jasprit Bumrah rating must be 85');
+  assert.equal(dhoni?.rating, 82, 'MS Dhoni rating must be 82');
+  assert.equal(siraj?.rating, 75, 'Mohammed Siraj rating must be 75');
+  assert.equal(arshdeep?.rating, 70, 'Arshdeep Singh rating must be 70');
+  assert.equal(shami?.rating, 70, 'Mohammed Shami rating must be 70');
+});
+
+test('user requested player tier movements to Tier 2 match exactly', () => {
+  const movedNames = ['Mitchell Marsh', 'Prabhsimran Singh', 'Noor Ahmad', 'Rinku Singh', 'Marco Jansen'];
+  movedNames.forEach(name => {
+    const player = IPL_PLAYERS.find(p => p.name === name || (name === 'Mitchell Marsh' && p.name.includes('Marsh')));
+    assert.ok(player, `${name} must exist`);
+    assert.equal(player.tier, 'Tier 2', `${name} must be in Tier 2`);
+    assert.equal(player.set, 'Tier 2', `${name} set must be Tier 2`);
+  });
+});
+
+test('tier pool sizes match exact expected modern counts', () => {
+  const tier1 = IPL_PLAYERS.filter(p => p.set === 'Tier 1' || p.tier === 'Tier 1');
+  const tier2 = IPL_PLAYERS.filter(p => p.set === 'Tier 2' || p.tier === 'Tier 2');
+  const tier3 = IPL_PLAYERS.filter(p => p.set === 'Tier 3' || p.tier === 'Tier 3');
+
+  assert.equal(tier1.length, 42, 'Tier 1 should have exactly 42 players');
+  assert.equal(tier2.length, 90, 'Tier 2 should have exactly 90 players');
+  assert.equal(tier3.length, 125, 'Tier 3 should have exactly 125 players');
+  assert.equal(tier1.length + tier2.length + tier3.length, 257, 'Total modern pool is 257 players');
+});
+
+test('all lots selection with Tier 1 and Tier 2 auctions all 42 Tier 1 and all 90 Tier 2 players sequentially', () => {
+  const order = generatePlayerOrder('mega', ['Tier 1', 'Tier 2'], 'all');
+  assert.equal(order.length, 42 + 90, 'Order length must equal all 132 players');
+
+  // First 42 must all be Tier 1
+  for (let i = 0; i < 42; i++) {
+    const p = IPL_PLAYERS[order[i]];
+    assert.equal(p.tier, 'Tier 1', `Player at index ${i} (${p.name}) must be Tier 1`);
+  }
+
+  // Next 90 must all be Tier 2
+  for (let i = 42; i < 132; i++) {
+    const p = IPL_PLAYERS[order[i]];
+    assert.equal(p.tier, 'Tier 2', `Player at index ${i} (${p.name}) must be Tier 2`);
+  }
+});
+
+test('dynamic room rating deltas are bounded in [-3, +3] and consistent within room', () => {
+  const deltas = generateRoomRatingDeltas(IPL_PLAYERS);
+  Object.entries(deltas).forEach(([pid, delta]) => {
+    assert.ok(delta >= -3 && delta <= 3, `Delta for player ${pid} must be in range [-3, +3], got ${delta}`);
+    assert.equal(Math.round(delta), delta, 'Delta must be an integer');
+  });
+
+  const bumrah = IPL_PLAYERS.find(p => p.name === 'Jasprit Bumrah');
+  const r1 = getPlayerDynamicRating(bumrah, 'ROOM-1', deltas);
+  const r2 = getPlayerDynamicRating(bumrah, 'ROOM-1', deltas);
+  assert.equal(r1, r2, 'Dynamic rating must be consistent within same room');
+  assert.ok(r1 >= bumrah.rating - 3 && r1 <= bumrah.rating + 3, 'Dynamic rating must be within ±3 of base rating');
+});
+
+test('RTM rules validation and execution in local auction engine', () => {
+  const bumrah = IPL_PLAYERS.find(p => p.name === 'Jasprit Bumrah');
+  const origTeam = getPlayerOriginalTeam(bumrah);
+  assert.equal(origTeam, 'MI', 'Jasprit Bumrah original franchise must be MI');
+
+  const roomTeams = [
+    { teamId: 'MI', budgetRemaining: 100, squad: [], rtmRemaining: 2 },
+    { teamId: 'CSK', budgetRemaining: 100, squad: [], rtmRemaining: 2 }
+  ];
+
+  // Eligible RTM
+  assert.equal(canTeamUseRTM(bumrah, 'MI', roomTeams, 15, { enableRTM: true }), true);
+  // Disabled RTM setting
+  assert.equal(canTeamUseRTM(bumrah, 'MI', roomTeams, 15, { enableRTM: false }), false);
+  // Wrong team
+  assert.equal(canTeamUseRTM(bumrah, 'CSK', roomTeams, 15, { enableRTM: true }), false);
+  // Insufficient budget
+  const brokeMI = [{ teamId: 'MI', budgetRemaining: 10, squad: [], rtmRemaining: 2 }];
+  assert.equal(canTeamUseRTM(bumrah, 'MI', brokeMI, 15, { enableRTM: true }), false);
+
+  // Local auction engine RTM state test
+  const initialLocalState = {
+    id: 'SOLO-TEST',
+    status: 'active',
+    hostId: 'human_user',
+    settings: { enableRTM: true, budget: 120 },
+    roomTeams: [
+      { userId: 'human_user', teamId: 'MI', isBot: false, budgetRemaining: 100, squad: [], rtmRemaining: 2 },
+      { userId: 'bot_CSK', teamId: 'CSK', isBot: true, budgetRemaining: 100, squad: [] }
+    ],
+    players: [{ id: 'human_user', spent: 0, squadCount: 0 }, { id: 'bot_CSK', spent: 0, squadCount: 0 }],
+    currentPlayerIndex: 0,
+    playerOrder: [IPL_PLAYERS.indexOf(bumrah)],
+    messages: [],
+    currentAuction: {
+      playerId: bumrah.id,
+      currentBid: 14,
+      highBidderId: 'bot_CSK',
+      highBidderName: 'Chennai Super Kings',
+      highBidderTeamId: 'CSK',
+      status: 'bidding'
+    }
+  };
+
+  // Resolve lot triggers RTM prompt for human user
+  const rtmPromptState = localAuctionReducer(initialLocalState, { type: 'RESOLVE_LOT', now: 1000 });
+  assert.equal(rtmPromptState.currentAuction.status, 'rtm');
+  assert.equal(rtmPromptState.currentAuction.rtmTeamId, 'MI');
+
+  // Exercise RTM by human user
+  const exercisedState = localAuctionReducer(rtmPromptState, { type: 'EXERCISE_RTM', teamId: 'MI', now: 2000 });
+  assert.equal(exercisedState.currentAuction.status, 'sold');
+  assert.equal(exercisedState.currentAuction.highBidderTeamId, 'MI');
+  const miTeam = exercisedState.roomTeams.find(t => t.teamId === 'MI');
+  assert.equal(miTeam.rtmRemaining, 1);
+  assert.equal(miTeam.squad.length, 1);
+  assert.equal(miTeam.squad[0].id, bumrah.id);
+  assert.equal(miTeam.budgetRemaining, 86);
 });
 
