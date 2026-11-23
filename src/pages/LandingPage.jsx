@@ -163,7 +163,7 @@ const LandingPage = () => {
   const [auctionType, setAuctionType] = useState("mega"); 
   const [selectedTiers, setSelectedTiers] = useState(["Tier 1", "Tier 2", "Tier 3"]);
   const [maxLots, setMaxLots] = useState(null);
-  const [enableRTM, setEnableRTM] = useState(false);
+  const [enableRTM, setEnableRTM] = useState(true);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customLotVal, setCustomLotVal] = useState("60");
   const [playSolo, setPlaySolo] = useState(false);

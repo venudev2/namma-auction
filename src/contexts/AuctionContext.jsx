@@ -67,6 +67,9 @@ import {
   resolveDisconnectAction,
   shouldArmDisconnectPause,
   shuffleArray,
+  getPlayerDynamicRating,
+  canTeamUseRTM,
+  getPlayerOriginalTeam,
 } from '../lib/auctionRules';
 import {
   transactAdvance,
@@ -169,6 +172,7 @@ export const AuctionProvider = ({ children }) => {
   const soloBotLoopRef = React.useRef(null);
   const soloStateManagerRef = React.useRef(null);
   const endingPlayerRef = React.useRef(false);
+  const declineRtmRef = React.useRef(null);
   const persistedSoloRoomsRef = React.useRef(new Set());
   const serverSessionsRef = React.useRef(null);
   if (!serverSessionsRef.current) {
@@ -618,6 +622,75 @@ export const AuctionProvider = ({ children }) => {
     }
   }, [getSyncedTime, handleFirebaseError]);
 
+  const advanceCloudAuction = useCallback(async (roomId, targetPlayerId, roomDataOverride = null) => {
+    try {
+      const server = normalizeServer(currentAuction?.server || getActiveServer());
+      const rtdbInstance = getRtdb(server);
+      const liveRef = ref(rtdbInstance, `auctions/${roomId}/live`);
+
+      let roomData = roomDataOverride;
+      if (!roomData) {
+        const rtdbRoomSnap = await get(ref(rtdbInstance, `auctions/${roomId}/room`));
+        roomData = rtdbRoomSnap.exists() ? rtdbRoomSnap.val() : {};
+      }
+
+      const roomStatus = roomData.status || currentAuction?.status || 'active';
+      if (roomStatus !== 'active') return;
+
+      const settings = roomData.settings;
+      let rawOrder = roomData.playerOrder;
+      if (!rawOrder) {
+        const orderSnap = await get(ref(rtdbInstance, `auctions/${roomId}/playerOrder`));
+        if (orderSnap.exists()) rawOrder = orderSnap.val();
+      }
+      let order = normalizePlayerOrder(rawOrder);
+      if (order.length === 0) {
+        order = generatePlayerOrder(
+          roomData.auctionType || 'mega',
+          roomData.settings?.selectedSets || roomData.selectedSets,
+          roomData.settings?.maxLots
+        );
+      }
+
+      const currentPlayerId = targetPlayerId;
+      const currentPlayerIndexInOrder = order.findIndex(idx => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === currentPlayerId);
+      const nextIndexInOrder = currentPlayerIndexInOrder !== -1 ? order[currentPlayerIndexInOrder + 1] : undefined;
+
+      if (nextIndexInOrder !== undefined && IPL_PLAYERS[nextIndexInOrder]) {
+        const nextPlayer = IPL_PLAYERS[nextIndexInOrder];
+        await runTransactionRtdb(liveRef, (currentLive) =>
+          transactAdvance(currentLive, {
+            currentPlayerId,
+            nextPlayerId: nextPlayer.id,
+            timerEndsAt: getSyncedTime() + (settings?.bidTimer || 10) * 1000,
+          }),
+        );
+      } else {
+        await onDisconnect(ref(rtdbInstance, `auctions/${roomId}/live`)).cancel().catch(() => {});
+        await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/room`), { status: 'completed' });
+        try {
+          await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/live`), { status: 'completed' });
+        } catch {
+          try {
+            await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/live`), { status: 'paused' });
+          } catch {}
+        }
+        const persisted = await flushAuctionToFirestore(roomId, server);
+        if (persisted) {
+          setTimeout(async () => {
+            try {
+              await remove(ref(rtdbInstance, `auctions/${roomId}`));
+            } catch {}
+          }, 30000);
+        }
+      }
+    } catch (advErr) {
+      console.warn('[auction] advanceCloudAuction error', advErr);
+    } finally {
+      endingPlayerRef.current = false;
+    }
+  }, [currentAuction?.server, currentAuction?.status, getSyncedTime, flushAuctionToFirestore]);
+
   const endPlayerAuction = useCallback(async (roomId) => {
     if (isLocalRoom(roomId, currentAuction?.server)) {
       const live = currentAuction?.currentAuction || currentAuction?.currentLot;
@@ -635,6 +708,21 @@ export const AuctionProvider = ({ children }) => {
 
     try {
       const liveRef = ref(rtdb, `auctions/${roomId}/live`);
+
+      // Check if current lot is in RTM status
+      const initialLiveSnap = await get(liveRef);
+      const initialLive = initialLiveSnap.exists() ? initialLiveSnap.val() : null;
+      if (initialLive?.status === 'rtm') {
+        if (getSyncedTime() >= (initialLive.timerEndsAt || 0)) {
+          endingPlayerRef.current = false;
+          if (declineRtmRef.current) {
+            await declineRtmRef.current(roomId);
+          }
+        } else {
+          endingPlayerRef.current = false;
+        }
+        return;
+      }
       
       // Use RTDB transaction to atomically claim the "end" action. It aborts if
       // a new bid extended the timer, or another client already finalized.
@@ -661,26 +749,103 @@ export const AuctionProvider = ({ children }) => {
       const player = IPL_PLAYERS.find(p => p.id === targetPlayerId);
       const teamDetails = TEAMS.find(t => t.id === auctionState.highBidderTeamId);
 
+      const rtdbRoomSnap = await get(ref(rtdb, `auctions/${roomId}/room`));
+      const roomData = rtdbRoomSnap.exists() ? rtdbRoomSnap.val() : {};
+      const initialBudget = toFiniteNumber(roomData.settings?.budget, 120.0);
+
+      // Check Right to Match (RTM) if enabled
+      if (isSold && roomData.settings?.enableRTM) {
+        const origTeamId = getPlayerOriginalTeam(player);
+        if (origTeamId && origTeamId !== auctionState.highBidderTeamId) {
+          const teamsSnap = await get(ref(rtdb, `auctions/${roomId}/teams`));
+          const teamsData = teamsSnap.exists() ? teamsSnap.val() : {};
+          const roomTeamsList = Object.entries(teamsData).map(([docId, t]) => ({
+            docId,
+            id: t.teamId,
+            teamId: t.teamId,
+            userId: t.userId,
+            teamName: t.teamName,
+            budgetRemaining: t.budgetRemaining,
+            rtmRemaining: t.rtmRemaining !== undefined ? t.rtmRemaining : 2,
+            squad: Array.isArray(t.squad) ? t.squad : (t.squad ? Object.values(t.squad) : []),
+            isBot: Boolean(t.isBot || String(t.userId).startsWith('bot_')),
+          }));
+
+          if (canTeamUseRTM(player, origTeamId, roomTeamsList, auctionState.currentBid, roomData.settings)) {
+            const origTeamObj = roomTeamsList.find(t => t.teamId === origTeamId || t.id === origTeamId);
+            if (origTeamObj) {
+              if (!origTeamObj.isBot) {
+                // Human franchise holds RTM! Prompt for 15 seconds
+                await updateRtdb(liveRef, {
+                  status: 'rtm',
+                  rtmTeamId: origTeamId,
+                  rtmTeamName: origTeamObj.teamName || origTeamId,
+                  rtmUserId: origTeamObj.userId,
+                  rtmPrice: auctionState.currentBid,
+                  rtmOriginalBuyerTeamId: auctionState.highBidderTeamId,
+                  rtmOriginalBuyerName: teamDetails?.name || auctionState.highBidderName,
+                  rtmOriginalBuyerId: auctionState.highBidderId,
+                  timerEndsAt: getSyncedTime() + 15000,
+                });
+
+                await push(ref(rtdb, `auctions/${roomId}/messages`), {
+                  userId: 'system',
+                  userName: 'System',
+                  text: `⚡ RIGHT TO MATCH: ${origTeamObj.teamName || origTeamId} has 15s to match ₹${auctionState.currentBid} Cr for ${player?.name || 'Player'}!`,
+                  type: 'log',
+                  timestamp: serverTimestampRtdb(),
+                });
+
+                endingPlayerRef.current = false;
+                return;
+              } else {
+                // Bot franchise holds RTM: evaluate bot decision
+                const botRating = getPlayerDynamicRating(player, roomId, roomData.settings?.ratingDeltas);
+                const botPurse = toFiniteNumber(origTeamObj.budgetRemaining, initialBudget);
+                const willExercise = (botRating >= 80 && botPurse >= auctionState.currentBid * 1.2) ||
+                                     (botRating >= 74 && botPurse >= auctionState.currentBid * 1.5 && Math.random() < 0.65);
+
+                if (willExercise) {
+                  auctionState.highBidderId = origTeamObj.userId;
+                  auctionState.highBidderTeamId = origTeamId;
+                  auctionState.highBidderName = origTeamObj.teamName || origTeamId;
+                  auctionState.isRtmMatch = true;
+
+                  const botTeamRef = ref(rtdb, `auctions/${roomId}/teams/${origTeamObj.docId}`);
+                  await updateRtdb(botTeamRef, {
+                    rtmRemaining: Math.max(0, origTeamObj.rtmRemaining - 1),
+                  });
+
+                  await updateRtdb(liveRef, {
+                    status: 'sold',
+                    highBidderId: origTeamObj.userId,
+                    highBidderTeamId: origTeamId,
+                    highBidderName: origTeamObj.teamName || origTeamId,
+                    isRtmMatch: true,
+                    celebrationEndsAt: getSyncedTime() + 5000,
+                    timerEndsAt: getSyncedTime() + 5000,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
       const playerNameStr = player?.name || 'Player';
-      const logText = `${playerNameStr} ${isSold ? `SOLD to ${teamDetails?.name || auctionState.highBidderName} for \u20b9${auctionState.currentBid} Cr` : 'UNSOLD'}`;
+      const logText = `${playerNameStr} ${auctionState.isRtmMatch ? `RETAINED by ${auctionState.highBidderName} via RTM for ₹${auctionState.currentBid} Cr!` : isSold ? `SOLD to ${teamDetails?.name || auctionState.highBidderName} for ₹${auctionState.currentBid} Cr` : 'UNSOLD'}`;
 
       let committedTotalSpent = 0;
       let committedSquadCount = 0;
       let teamDocId = null;
-
-      // ── Bug Fix 5: Single get(room) call — eliminates TOCTOU window and halves RTDB reads ──
-      // Fetch room data once up front; reuse for both player-update and player-order logic.
-      const rtdbRoomSnap = await get(ref(rtdb, `auctions/${roomId}/room`));
-      const roomData = rtdbRoomSnap.exists() ? rtdbRoomSnap.val() : {};
-      const initialBudget = toFiniteNumber(roomData.settings?.budget, 120.0);
 
       if (isSold) {
         teamDocId = `${roomId}_${auctionState.highBidderId}`;
         const teamRef = ref(rtdb, `auctions/${roomId}/teams/${teamDocId}`);
 
         // Update team squad and purse atomically using transaction to prevent stale snapshot overwrites
-        const teamTx = await runTransactionRtdb(teamRef, (currentTeam) =>
-          transactTeamSale(currentTeam, {
+        const teamTx = await runTransactionRtdb(teamRef, (currentTeam) => {
+          const res = transactTeamSale(currentTeam, {
             roomId,
             playerId: targetPlayerId,
             bid: auctionState.currentBid,
@@ -688,8 +853,13 @@ export const AuctionProvider = ({ children }) => {
             winnerTeamId: auctionState.highBidderTeamId,
             winnerName: teamDetails?.name || auctionState.highBidderName,
             initialBudget,
-          }),
-        );
+          });
+          if (res && auctionState.isRtmMatch) {
+            const currentRtm = res.rtmRemaining !== undefined ? res.rtmRemaining : 2;
+            res.rtmRemaining = Math.max(0, currentRtm - 1);
+          }
+          return res;
+        });
 
         const committedTeam = teamTx?.snapshot?.val();
         if (committedTeam) {
@@ -723,94 +893,23 @@ export const AuctionProvider = ({ children }) => {
             teamId: auctionState.highBidderTeamId,
             bid: auctionState.currentBid,
             buyerId: auctionState.highBidderId,
-            buyerName: auctionState.highBidderName
+            buyerName: auctionState.highBidderName,
+            rtm: Boolean(auctionState.isRtmMatch),
           } : null,
           timestamp: serverTimestampRtdb()
         });
       }
 
       const waitTime = isSold ? 5000 : 2000;
-
-      // Player order from the single room snapshot already fetched above
-      let rawOrder = roomData.playerOrder;
-      if (!rawOrder) {
-        const orderSnap = await get(ref(rtdb, `auctions/${roomId}/playerOrder`));
-        if (orderSnap.exists()) rawOrder = orderSnap.val();
-      }
-      let order = normalizePlayerOrder(rawOrder);
-      if (order.length === 0) {
-        order = generatePlayerOrder(
-          roomData.auctionType || 'mega',
-          roomData.settings?.selectedSets || roomData.selectedSets,
-          roomData.settings?.maxLots
-        );
-      }
-
-      // ── Bug Fix 2: Always release endingPlayerRef via finally inside the timeout callback ──
-      // Previously, component unmount before timeout fired left the ref stuck at true forever.
-      const advanceToNextPlayer = async () => {
-        try {
-          const roomStatus = roomData.status || currentAuction?.status || 'active';
-          if (roomStatus !== 'active') return;
-
-          const settings = roomData.settings;
-          const currentPlayerId = targetPlayerId;
-          const currentPlayerIndexInOrder = order.findIndex(idx => IPL_PLAYERS[idx] && IPL_PLAYERS[idx].id === currentPlayerId);
-          const nextIndexInOrder = currentPlayerIndexInOrder !== -1 ? order[currentPlayerIndexInOrder + 1] : order[0];
-
-          if (nextIndexInOrder !== undefined && IPL_PLAYERS[nextIndexInOrder]) {
-            const nextPlayer = IPL_PLAYERS[nextIndexInOrder];
-            // Atomic advance: aborts if another client already advanced or started bidding on the next player
-            await runTransactionRtdb(liveRef, (currentLive) =>
-              transactAdvance(currentLive, {
-                currentPlayerId,
-                nextPlayerId: nextPlayer.id,
-                timerEndsAt: getSyncedTime() + (settings?.bidTimer || 10) * 1000,
-              }),
-            );
-          } else {
-            const server = normalizeServer(currentAuction?.server || getActiveServer());
-            const rtdbInstance = getRtdb(server);
-            // 1. Cancel onDisconnect so a connection drop does not auto-pause an ending auction.
-            await onDisconnect(ref(rtdbInstance, `auctions/${roomId}/live`)).cancel().catch(() => {});
-            // 2. Mark the room completed (authoritative status, triggers redirect to /summary).
-            await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/room`), { status: 'completed' });
-            // 3. Mark the lot completed (or paused as fallback if deployed database rules haven't whitelisted 'completed' yet)
-            //    so pending timers/transactions abort cleanly without blocking completion.
-            try {
-              await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/live`), { status: 'completed' });
-            } catch {
-              try {
-                await updateRtdb(ref(rtdbInstance, `auctions/${roomId}/live`), { status: 'paused' });
-              } catch {}
-            }
-            // 4. Persist the completed room. Keep the RTDB copy if this failed:
-            //    AuctionSummary can still reconstruct the result from it.
-            const persisted = await flushAuctionToFirestore(roomId, server);
-
-            if (persisted) {
-              setTimeout(async () => {
-                try {
-                  await remove(ref(rtdbInstance, `auctions/${roomId}`));
-                } catch {
-                  // Best-effort cleanup: the room may already be gone.
-                }
-              }, 30000);
-            }
-          }
-        } finally {
-          // Always release the lock — even if any async step above throws or component unmounts
-          endingPlayerRef.current = false;
-        }
-      };
-
-      setTimeout(advanceToNextPlayer, waitTime);
+      setTimeout(async () => {
+        await advanceCloudAuction(roomId, targetPlayerId, roomData);
+      }, waitTime);
     } catch (err) {
       console.error('[auction] endPlayerAuction failed', err);
       handleFirebaseError(err);
       endingPlayerRef.current = false;
     }
-  }, [getSyncedTime, flushAuctionToFirestore]);
+  }, [getSyncedTime, advanceCloudAuction]);
 
   // Ref guards against duplicate fast-forward / pass actions
   const isSimulatingRef = React.useRef(false);
@@ -1141,20 +1240,88 @@ export const AuctionProvider = ({ children }) => {
       const snap = await get(liveRef);
       if (snap.exists() && snap.val()?.status === 'rtm') {
         const liveVal = snap.val();
+        const targetPlayerId = liveVal.playerId;
+        const player = IPL_PLAYERS.find(p => p.id === targetPlayerId);
+        const buyerId = user?.uid || liveVal.rtmUserId;
+        const buyerTeamId = teamId || liveVal.rtmTeamId;
+        const buyerName = user?.displayName || liveVal.rtmTeamName || buyerTeamId;
+        const price = liveVal.rtmPrice || liveVal.currentBid;
+
         await updateRtdb(liveRef, {
           status: 'sold',
-          highBidderId: user?.uid,
-          highBidderTeamId: teamId,
-          highBidderName: user?.displayName || teamId,
+          highBidderId: buyerId,
+          highBidderTeamId: buyerTeamId,
+          highBidderName: buyerName,
           isRtmMatch: true,
           celebrationEndsAt: getSyncedTime() + 5000,
           timerEndsAt: getSyncedTime() + 5000,
         });
+
+        const teamDocId = `${roomId}_${buyerId}`;
+        const teamRef = ref(rtdbInstance, `auctions/${roomId}/teams/${teamDocId}`);
+        const roomRef = ref(rtdbInstance, `auctions/${roomId}/room`);
+        const roomSnap = await get(roomRef);
+        const roomData = roomSnap.exists() ? roomSnap.val() : {};
+        const initialBudget = toFiniteNumber(roomData.settings?.budget, 120.0);
+
+        let committedTotalSpent = 0;
+        let committedSquadCount = 0;
+
+        const teamTx = await runTransactionRtdb(teamRef, (currentTeam) => {
+          const res = transactTeamSale(currentTeam, {
+            roomId,
+            playerId: targetPlayerId,
+            bid: price,
+            winnerId: buyerId,
+            winnerTeamId: buyerTeamId,
+            winnerName: buyerName,
+            initialBudget,
+          });
+          if (res) {
+            const currentRtm = res.rtmRemaining !== undefined ? res.rtmRemaining : 2;
+            res.rtmRemaining = Math.max(0, currentRtm - 1);
+          }
+          return res;
+        });
+
+        const committedTeam = teamTx?.snapshot?.val();
+        if (committedTeam) {
+          committedTotalSpent = toFiniteNumber(committedTeam.spent, 0);
+          committedSquadCount = Array.isArray(committedTeam.squad) ? committedTeam.squad.length : 0;
+        }
+
+        await runTransactionRtdb(roomRef, (currentRoom) =>
+          transactRoomPlayersSale(currentRoom, {
+            winnerId: buyerId,
+            totalSpent: committedTotalSpent,
+            squadCount: committedSquadCount,
+          }),
+        );
+
+        await push(ref(rtdbInstance, `auctions/${roomId}/messages`), {
+          userId: 'system',
+          userName: 'System',
+          text: `⚡ RTM EXERCISED! ${buyerName} exercised Right to Match to retain ${player?.name || 'Player'} for ₹${price} Cr!`,
+          type: 'sold_card',
+          metadata: {
+            playerId: targetPlayerId,
+            teamId: buyerTeamId,
+            bid: price,
+            buyerId,
+            buyerName,
+            rtm: true,
+          },
+          timestamp: serverTimestampRtdb(),
+        });
+
+        setTimeout(async () => {
+          await advanceCloudAuction(roomId, targetPlayerId, roomData);
+        }, 5000);
       }
     } catch (err) {
       console.warn('[auction] exerciseRtm error', err);
     }
-  }, [currentAuction?.server, user, getSyncedTime]);
+  }, [currentAuction?.server, user, getSyncedTime, advanceCloudAuction]);
 
   const declineRtm = useCallback(async (roomId) => {
     if (!roomId) return;
@@ -1169,19 +1336,85 @@ export const AuctionProvider = ({ children }) => {
       const snap = await get(liveRef);
       if (snap.exists() && snap.val()?.status === 'rtm') {
         const liveVal = snap.val();
+        const targetPlayerId = liveVal.playerId;
+        const player = IPL_PLAYERS.find(p => p.id === targetPlayerId);
+        const buyerId = liveVal.rtmOriginalBuyerId || liveVal.highBidderId;
+        const buyerTeamId = liveVal.rtmOriginalBuyerTeamId || liveVal.highBidderTeamId;
+        const buyerName = liveVal.rtmOriginalBuyerName || liveVal.highBidderName;
+        const price = liveVal.rtmPrice || liveVal.currentBid;
+
         await updateRtdb(liveRef, {
           status: 'sold',
-          highBidderId: liveVal.rtmOriginalBuyerId || liveVal.highBidderId,
-          highBidderTeamId: liveVal.rtmOriginalBuyerTeamId || liveVal.highBidderTeamId,
-          highBidderName: liveVal.rtmOriginalBuyerName || liveVal.highBidderName,
+          highBidderId: buyerId,
+          highBidderTeamId: buyerTeamId,
+          highBidderName: buyerName,
           celebrationEndsAt: getSyncedTime() + 5000,
           timerEndsAt: getSyncedTime() + 5000,
         });
+
+        const teamDocId = `${roomId}_${buyerId}`;
+        const teamRef = ref(rtdbInstance, `auctions/${roomId}/teams/${teamDocId}`);
+        const roomRef = ref(rtdbInstance, `auctions/${roomId}/room`);
+        const roomSnap = await get(roomRef);
+        const roomData = roomSnap.exists() ? roomSnap.val() : {};
+        const initialBudget = toFiniteNumber(roomData.settings?.budget, 120.0);
+
+        let committedTotalSpent = 0;
+        let committedSquadCount = 0;
+
+        const teamTx = await runTransactionRtdb(teamRef, (currentTeam) =>
+          transactTeamSale(currentTeam, {
+            roomId,
+            playerId: targetPlayerId,
+            bid: price,
+            winnerId: buyerId,
+            winnerTeamId: buyerTeamId,
+            winnerName: buyerName,
+            initialBudget,
+          }),
+        );
+
+        const committedTeam = teamTx?.snapshot?.val();
+        if (committedTeam) {
+          committedTotalSpent = toFiniteNumber(committedTeam.spent, 0);
+          committedSquadCount = Array.isArray(committedTeam.squad) ? committedTeam.squad.length : 0;
+        }
+
+        await runTransactionRtdb(roomRef, (currentRoom) =>
+          transactRoomPlayersSale(currentRoom, {
+            winnerId: buyerId,
+            totalSpent: committedTotalSpent,
+            squadCount: committedSquadCount,
+          }),
+        );
+
+        await push(ref(rtdbInstance, `auctions/${roomId}/messages`), {
+          userId: 'system',
+          userName: 'System',
+          text: `${player?.name || 'Player'} SOLD to ${buyerName} for ₹${price} Cr (RTM declined)`,
+          type: 'sold_card',
+          metadata: {
+            playerId: targetPlayerId,
+            teamId: buyerTeamId,
+            bid: price,
+            buyerId,
+            buyerName,
+          },
+          timestamp: serverTimestampRtdb(),
+        });
+
+        setTimeout(async () => {
+          await advanceCloudAuction(roomId, targetPlayerId, roomData);
+        }, 5000);
       }
     } catch (err) {
       console.warn('[auction] declineRtm error', err);
     }
-  }, [currentAuction?.server, getSyncedTime]);
+  }, [currentAuction?.server, getSyncedTime, advanceCloudAuction]);
+
+  useEffect(() => {
+    declineRtmRef.current = declineRtm;
+  }, [declineRtm]);
 
   /**
    * Multiplayer consensus pass vote:

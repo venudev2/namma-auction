@@ -194,7 +194,8 @@ const AuctionSummary = () => {
             squadLimit: toFiniteNumber(aData.squad_limit || aData.squadLimit, 25),
             overseasLimit: toFiniteNumber(aData.overseas_limit || aData.overseasLimit, 8),
             players: aData.players || [],
-            settings: aData.settings || { budget: 120, bidTimer: 10 }
+            settings: aData.settings || { budget: 120, bidTimer: 10 },
+            playerOrder: aData.player_order || aData.playerOrder || aData.settings?.playerOrder || [],
           });
 
           const parsedTeams = (rawTeams || []).map(t => {

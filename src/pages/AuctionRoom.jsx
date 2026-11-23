@@ -1668,14 +1668,6 @@ const AuctionRoom = () => {
                         <span className="bg-white/10 backdrop-blur-md border border-white/15 text-slate-200 text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider">
                            {currentPlayer.type}
                         </span>
-                        {currentDynamicRating > 0 && (
-                           <>
-                              <span className="text-slate-500 text-[10px]">•</span>
-                              <span className="bg-white/10 backdrop-blur-md border border-white/15 text-slate-200 text-[7.5px] font-pixel px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                 ★ {currentDynamicRating}
-                              </span>
-                           </>
-                        )}
                      </div>
                   </div>
                </div>
@@ -1701,11 +1693,6 @@ const AuctionRoom = () => {
                         <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-wider">
                            Base: ₹{currentPlayer?.basePrice == null ? '—' : `${formatCrores(currentPlayer.basePrice)} Cr`}
                         </span>
-                        {currentDynamicRating > 0 && (
-                           <span className="bg-white/5 border border-white/10 text-slate-300 text-[8px] md:text-[9px] font-pixel px-2.5 py-1 rounded-full uppercase tracking-wider">
-                              Rating: {currentDynamicRating}
-                           </span>
-                        )}
                      </div>
                      <h2 className="text-2xl sm:text-3xl xl:text-5xl font-pixel tracking-tight text-white leading-tight truncate drop-shadow-[0_2px_12px_rgba(255,255,255,0.08)]" title={currentPlayer.name}>{currentPlayer.name}</h2>
                   </div>

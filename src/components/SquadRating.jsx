@@ -101,23 +101,42 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
     if (type === 'sprint11' || type === 'legends') return 11;
     if (type === 'sprint5') return 5;
 
-    // Check if the auction was lot-capped or restricted to selected tiers (e.g. only Tier 1)
-    const totalLots = currentAuction?.playerOrder?.length 
+    // Check if the auction was lot-capped or restricted to selected tiers (e.g. only Tier 1, or Tier 1 & 2)
+    const selectedSets = currentAuction?.settings?.selectedSets || currentAuction?.selectedSets;
+    const isRestrictedSets = Array.isArray(selectedSets) && selectedSets.length > 0 && selectedSets.length < 3;
+
+    let totalLots = currentAuction?.playerOrder?.length 
       || currentAuction?.settings?.maxLots 
-      || (currentAuction?.settings?.selectedSets?.length === 1 ? 42 : null);
+      || currentAuction?.maxLots;
+
+    if (!totalLots && isRestrictedSets) {
+      let count = 0;
+      if (selectedSets.includes('Tier 1')) count += 42;
+      if (selectedSets.includes('Tier 2')) count += 90;
+      if (selectedSets.includes('Tier 3')) count += 40;
+      totalLots = count;
+    }
 
     const teamCount = Math.max(2, roomTeams.length || 10);
+    const maxSquadSize = Math.max(0, ...roomTeams.map((t) => {
+      const sq = Array.isArray(t.squad) ? t.squad : (t.squad ? Object.values(t.squad) : []);
+      return sq.length;
+    }));
 
     if (totalLots && totalLots > 0) {
       const avgPerTeam = totalLots / teamCount;
       if (avgPerTeam < 15) {
         // For short / tier-restricted / capped auctions, adapt requirement to squad capacity
-        return Math.max(1, Math.min(18, Math.floor(avgPerTeam * 0.5)));
+        return Math.max(1, Math.min(18, Math.floor(avgPerTeam * 0.4)));
       }
     }
 
+    if (maxSquadSize > 0 && maxSquadSize < 15) {
+      return Math.max(1, Math.floor(maxSquadSize * 0.5));
+    }
+
     return currentAuction?.settings?.minPlayers || 18;
-  }, [currentAuction, roomTeams.length]);
+  }, [currentAuction, roomTeams]);
 
   const loadAiAnalysis = useCallback(async (force = false) => {
     if (!auctionId || roomTeams.length === 0) return;
@@ -273,7 +292,7 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
     } finally {
       setAiLoading(false);
     }
-  }, [auctionId, roomTeams, currentAuction?.auctionType]);
+  }, [auctionId, roomTeams, currentAuction?.auctionType, minPlayers]);
 
   useEffect(() => {
     loadAiAnalysis(false);
@@ -292,7 +311,8 @@ const SquadRating = ({ roomTeams = [], currentAuction, auctionId: propAuctionId,
       const playersWithInfo = [];
 
       normalizedPlayers.forEach(pId => {
-        const playerInfo = IPL_PLAYERS.find(p => p.id === pId);
+        const targetId = typeof pId === 'object' ? (pId?.id || pId?.name) : pId;
+        const playerInfo = IPL_PLAYERS.find(p => p.id === targetId || p.name === targetId);
         const dynamicRating = getPlayerDynamicRating(playerInfo, auctionId, currentAuction?.settings?.ratingDeltas);
         if (dynamicRating) {
           totalRating += dynamicRating;
